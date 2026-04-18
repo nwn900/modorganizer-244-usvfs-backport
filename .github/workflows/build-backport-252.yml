@@ -1,0 +1,93 @@
+name: build-backport-252
+
+on:
+  push:
+    branches:
+      - codex/backport-252-download-install-fixes
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  TARGET_MO2_VERSION: 2.5.2
+  MOB_REF: v2.5.2
+  MO_BRANCH: 2_5_x
+  USER_BRANCH: codex/backport-252-download-install-fixes
+  USER_ORG: nwn900
+  USVFS_REF: v0.5.6.2
+  QT_VERSION: 6.7.1
+  QT_ARCH: win64_msvc2019_64
+
+jobs:
+  build:
+    runs-on: windows-2022
+    timeout-minutes: 360
+
+    steps:
+      - name: Checkout fork
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install build prerequisites
+        shell: pwsh
+        run: |
+          choco install 7zip nasm strawberryperl nuget.commandline jom -y --no-progress
+
+      - name: Install Qt
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install aqtinstall
+          python -m aqt install-qt windows desktop $env:QT_VERSION $env:QT_ARCH --outputdir C:\Qt -m qtwebengine qtimageformats qtpositioning qtserialport qtwebchannel qtwebsockets
+
+      - name: Detect Visual Studio and Windows SDK
+        shell: pwsh
+        run: |
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} "Microsoft Visual Studio\Installer\vswhere.exe"
+          if (!(Test-Path $vswhere)) {
+            throw "vswhere.exe not found"
+          }
+
+          $vs = & $vswhere -products * -nologo -latest -version "[17.0,18.0)" -property installationPath
+          if (-not $vs) {
+            throw "Visual Studio 2022 not found"
+          }
+
+          $sdk = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\Include" -Directory |
+            Where-Object { $_.Name -match '^\d+\.\d+\.\d+\.\d+$' } |
+            Sort-Object { [version]$_.Name } -Descending |
+            Select-Object -First 1 -ExpandProperty Name
+          if (-not $sdk) {
+            throw "Windows SDK not found"
+          }
+
+          $qtInstall = Join-Path (Join-Path "C:\Qt" $env:QT_VERSION) "msvc2019_64"
+          "MO2_VS=$vs" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "MO2_SDK=$sdk" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "MO2_QT_INSTALL=$qtInstall" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Build, smoke test, and package
+        shell: pwsh
+        run: |
+          & .\.github\scripts\build-backport.ps1 `
+            -TargetVersion $env:TARGET_MO2_VERSION `
+            -MobRef $env:MOB_REF `
+            -MoBranch $env:MO_BRANCH `
+            -UserBranch $env:USER_BRANCH `
+            -UserOrg $env:USER_ORG `
+            -UsvfsRef $env:USVFS_REF
+
+      - name: Upload build artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: modorganizer-2.5.2-backport-build
+          if-no-files-found: warn
+          path: ci-output

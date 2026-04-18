@@ -156,15 +156,19 @@ DownloadManager::DownloadInfo::createFromMeta(const QString& filePath, bool show
 ScopedDisableDirWatcher::ScopedDisableDirWatcher(DownloadManager* downloadManager)
 {
   m_downloadManager = downloadManager;
-  m_downloadManager->startDisableDirWatcher();
-  log::debug("Scoped Disable DirWatcher: Started");
+  if (m_downloadManager != nullptr) {
+    m_downloadManager->startDisableDirWatcher();
+    log::debug("Scoped Disable DirWatcher: Started");
+  }
 }
 
 ScopedDisableDirWatcher::~ScopedDisableDirWatcher()
 {
-  m_downloadManager->endDisableDirWatcher();
-  m_downloadManager = nullptr;
-  log::debug("Scoped Disable DirWatcher: Stopped");
+  if (m_downloadManager != nullptr) {
+    m_downloadManager->endDisableDirWatcher();
+    m_downloadManager = nullptr;
+    log::debug("Scoped Disable DirWatcher: Stopped");
+  }
 }
 
 void DownloadManager::startDisableDirWatcher()
@@ -519,9 +523,10 @@ bool DownloadManager::addDownload(QNetworkReply* reply, const QStringList& URLs,
     baseName.truncate(queryIndex);
   }
 
-  startDisableDirWatcher();
-  newDownload->setName(getDownloadFileName(baseName), false);
-  endDisableDirWatcher();
+  {
+    ScopedDisableDirWatcher scopedDirWatcher(this);
+    newDownload->setName(getDownloadFileName(baseName), false);
+  }
 
   startDownload(reply, newDownload, false);
   //  emit update(-1);
@@ -530,6 +535,7 @@ bool DownloadManager::addDownload(QNetworkReply* reply, const QStringList& URLs,
 
 void DownloadManager::removePending(QString gameName, int modID, int fileID)
 {
+  std::lock_guard<std::recursive_mutex> lock(m_ListMutex);
   QString gameShortName = gameName;
   QStringList games(m_ManagedGame->validShortNames());
   games += m_ManagedGame->gameShortName();
@@ -592,7 +598,10 @@ void DownloadManager::startDownload(QNetworkReply* reply, DownloadInfo* newDownl
                   newDownload->m_FileInfo->fileID);
 
     emit aboutToUpdate();
-    m_ActiveDownloads.append(newDownload);
+    {
+      std::lock_guard<std::recursive_mutex> lock(m_ListMutex);
+      m_ActiveDownloads.append(newDownload);
+    }
 
     emit update(-1);
     emit downloadAdded();
@@ -612,9 +621,11 @@ void DownloadManager::startDownload(QNetworkReply* reply, DownloadInfo* newDownl
         else
           setState(newDownload, STATE_CANCELING);
       } else {
-        startDisableDirWatcher();
-        newDownload->setName(getDownloadFileName(newDownload->m_FileName, true), true);
-        endDisableDirWatcher();
+        {
+          ScopedDisableDirWatcher scopedDirWatcher(this);
+          newDownload->setName(getDownloadFileName(newDownload->m_FileName, true),
+                               true);
+        }
         if (newDownload->m_State == STATE_PAUSED)
           resumeDownload(indexByInfo(newDownload));
         else
@@ -748,9 +759,12 @@ void DownloadManager::addNXMDownload(const QString& url)
   }
 
   emit aboutToUpdate();
-
-  m_PendingDownloads.append(
-      std::make_tuple(foundGame->gameShortName(), nxmInfo.modId(), nxmInfo.fileId()));
+  {
+    std::lock_guard<std::recursive_mutex> lock(m_ListMutex);
+    m_PendingDownloads.append(std::make_tuple(foundGame->gameShortName(),
+                                              nxmInfo.modId(),
+                                              nxmInfo.fileId()));
+  }
 
   emit update(-1);
   emit downloadAdded();
@@ -840,6 +854,7 @@ void DownloadManager::refreshAlphabeticalTranslation()
 
 void DownloadManager::restoreDownload(int index)
 {
+  std::lock_guard<std::recursive_mutex> lock(m_ListMutex);
 
   if (index < 0) {
     DownloadState minState = STATE_READY;
@@ -865,11 +880,9 @@ void DownloadManager::restoreDownload(int index)
       QString filePath = m_OutputDirectory + "/" + download->m_FileName;
 
       // avoid dirWatcher triggering refreshes
-      startDisableDirWatcher();
+      ScopedDisableDirWatcher scopedDirWatcher(this);
       QSettings metaSettings(filePath.append(".meta"), QSettings::IniFormat);
       metaSettings.setValue("removed", false);
-
-      endDisableDirWatcher();
     }
   }
 }
@@ -881,6 +894,7 @@ void DownloadManager::removeDownload(int index, bool deleteFile)
     ScopedDisableDirWatcher scopedDirWatcher(this);
 
     emit aboutToUpdate();
+    std::lock_guard<std::recursive_mutex> lock(m_ListMutex);
 
     if (index < 0) {
       bool removeAll            = (index == -1);
@@ -920,6 +934,7 @@ void DownloadManager::removeDownload(int index, bool deleteFile)
 
 void DownloadManager::cancelDownload(int index)
 {
+  std::lock_guard<std::recursive_mutex> lock(m_ListMutex);
   if ((index < 0) || (index >= m_ActiveDownloads.size())) {
     reportError(tr("cancel: invalid download index %1").arg(index));
     return;
@@ -932,6 +947,7 @@ void DownloadManager::cancelDownload(int index)
 
 void DownloadManager::pauseDownload(int index)
 {
+  std::lock_guard<std::recursive_mutex> lock(m_ListMutex);
   if ((index < 0) || (index >= m_ActiveDownloads.size())) {
     reportError(tr("pause: invalid download index %1").arg(index));
     return;
@@ -954,6 +970,7 @@ void DownloadManager::pauseDownload(int index)
 
 void DownloadManager::resumeDownload(int index)
 {
+  std::lock_guard<std::recursive_mutex> lock(m_ListMutex);
   if ((index < 0) || (index >= m_ActiveDownloads.size())) {
     reportError(tr("resume: invalid download index %1").arg(index));
     return;
@@ -965,6 +982,7 @@ void DownloadManager::resumeDownload(int index)
 
 void DownloadManager::resumeDownloadInt(int index)
 {
+  std::lock_guard<std::recursive_mutex> lock(m_ListMutex);
   if ((index < 0) || (index >= m_ActiveDownloads.size())) {
     reportError(tr("resume (int): invalid download index %1").arg(index));
     return;
@@ -1248,18 +1266,21 @@ void DownloadManager::openInDownloadsFolder(int index)
 
 int DownloadManager::numTotalDownloads() const
 {
+  std::lock_guard<std::recursive_mutex> lock(m_ListMutex);
   return m_ActiveDownloads.size();
 }
 
 int DownloadManager::numPendingDownloads() const
 {
+  std::lock_guard<std::recursive_mutex> lock(m_ListMutex);
   return m_PendingDownloads.size();
 }
 
 std::tuple<QString, int, int> DownloadManager::getPendingDownload(int index)
 {
+  std::lock_guard<std::recursive_mutex> lock(m_ListMutex);
   if ((index < 0) || (index >= m_PendingDownloads.size())) {
-    throw MyException(tr("get pending: invalid download index %1").arg(index));
+    return std::make_tuple(QString(), -1, -1);
   }
 
   return m_PendingDownloads.at(index);
@@ -1267,8 +1288,9 @@ std::tuple<QString, int, int> DownloadManager::getPendingDownload(int index)
 
 QString DownloadManager::getFilePath(int index) const
 {
+  std::lock_guard<std::recursive_mutex> lock(m_ListMutex);
   if ((index < 0) || (index >= m_ActiveDownloads.size())) {
-    throw MyException(tr("get path: invalid download index %1").arg(index));
+    return QString();
   }
 
   return m_OutputDirectory + "/" + m_ActiveDownloads.at(index)->m_FileName;
@@ -1298,8 +1320,9 @@ QString DownloadManager::getFileTypeString(int fileType)
 
 QString DownloadManager::getDisplayName(int index) const
 {
+  std::lock_guard<std::recursive_mutex> lock(m_ListMutex);
   if ((index < 0) || (index >= m_ActiveDownloads.size())) {
-    throw MyException(tr("display name: invalid download index %1").arg(index));
+    return QString();
   }
 
   DownloadInfo* info = m_ActiveDownloads.at(index);
@@ -1319,8 +1342,9 @@ QString DownloadManager::getDisplayName(int index) const
 
 QString DownloadManager::getFileName(int index) const
 {
+  std::lock_guard<std::recursive_mutex> lock(m_ListMutex);
   if ((index < 0) || (index >= m_ActiveDownloads.size())) {
-    throw MyException(tr("file name: invalid download index %1").arg(index));
+    return QString();
   }
 
   return m_ActiveDownloads.at(index)->m_FileName;
@@ -1328,8 +1352,9 @@ QString DownloadManager::getFileName(int index) const
 
 QDateTime DownloadManager::getFileTime(int index) const
 {
+  std::lock_guard<std::recursive_mutex> lock(m_ListMutex);
   if ((index < 0) || (index >= m_ActiveDownloads.size())) {
-    throw MyException(tr("file time: invalid download index %1").arg(index));
+    return QDateTime();
   }
 
   DownloadInfo* info = m_ActiveDownloads.at(index);
@@ -1347,8 +1372,9 @@ QDateTime DownloadManager::getFileTime(int index) const
 
 qint64 DownloadManager::getFileSize(int index) const
 {
+  std::lock_guard<std::recursive_mutex> lock(m_ListMutex);
   if ((index < 0) || (index >= m_ActiveDownloads.size())) {
-    throw MyException(tr("file size: invalid download index %1").arg(index));
+    return 0;
   }
 
   return m_ActiveDownloads.at(index)->m_TotalSize;
@@ -1356,8 +1382,9 @@ qint64 DownloadManager::getFileSize(int index) const
 
 std::pair<int, QString> DownloadManager::getProgress(int index) const
 {
+  std::lock_guard<std::recursive_mutex> lock(m_ListMutex);
   if ((index < 0) || (index >= m_ActiveDownloads.size())) {
-    throw MyException(tr("progress: invalid download index %1").arg(index));
+    return std::make_pair(0, QString());
   }
 
   return m_ActiveDownloads.at(index)->m_Progress;
@@ -1365,8 +1392,9 @@ std::pair<int, QString> DownloadManager::getProgress(int index) const
 
 DownloadManager::DownloadState DownloadManager::getState(int index) const
 {
+  std::lock_guard<std::recursive_mutex> lock(m_ListMutex);
   if ((index < 0) || (index >= m_ActiveDownloads.size())) {
-    throw MyException(tr("state: invalid download index %1").arg(index));
+    return STATE_ERROR;
   }
 
   return m_ActiveDownloads.at(index)->m_State;
@@ -1374,8 +1402,9 @@ DownloadManager::DownloadState DownloadManager::getState(int index) const
 
 bool DownloadManager::isInfoIncomplete(int index) const
 {
+  std::lock_guard<std::recursive_mutex> lock(m_ListMutex);
   if ((index < 0) || (index >= m_ActiveDownloads.size())) {
-    throw MyException(tr("infocomplete: invalid download index %1").arg(index));
+    return true;
   }
 
   DownloadInfo* info = m_ActiveDownloads.at(index);
@@ -1388,16 +1417,18 @@ bool DownloadManager::isInfoIncomplete(int index) const
 
 int DownloadManager::getModID(int index) const
 {
+  std::lock_guard<std::recursive_mutex> lock(m_ListMutex);
   if ((index < 0) || (index >= m_ActiveDownloads.size())) {
-    throw MyException(tr("mod id: invalid download index %1").arg(index));
+    return 0;
   }
   return m_ActiveDownloads.at(index)->m_FileInfo->modID;
 }
 
 QString DownloadManager::getDisplayGameName(int index) const
 {
+  std::lock_guard<std::recursive_mutex> lock(m_ListMutex);
   if ((index < 0) || (index >= m_ActiveDownloads.size())) {
-    throw MyException(tr("mod id: invalid download index %1").arg(index));
+    return QString();
   }
   QString gameName        = m_ActiveDownloads.at(index)->m_FileInfo->gameName;
   IPluginGame* gamePlugin = m_OrganizerCore->getGame(gameName);
@@ -1409,24 +1440,27 @@ QString DownloadManager::getDisplayGameName(int index) const
 
 QString DownloadManager::getGameName(int index) const
 {
+  std::lock_guard<std::recursive_mutex> lock(m_ListMutex);
   if ((index < 0) || (index >= m_ActiveDownloads.size())) {
-    throw MyException(tr("mod id: invalid download index %1").arg(index));
+    return QString();
   }
   return m_ActiveDownloads.at(index)->m_FileInfo->gameName;
 }
 
 bool DownloadManager::isHidden(int index) const
 {
+  std::lock_guard<std::recursive_mutex> lock(m_ListMutex);
   if ((index < 0) || (index >= m_ActiveDownloads.size())) {
-    throw MyException(tr("ishidden: invalid download index %1").arg(index));
+    return false;
   }
   return m_ActiveDownloads.at(index)->m_Hidden;
 }
 
 const ModRepositoryFileInfo* DownloadManager::getFileInfo(int index) const
 {
+  std::lock_guard<std::recursive_mutex> lock(m_ListMutex);
   if ((index < 0) || (index >= m_ActiveDownloads.size())) {
-    throw MyException(tr("file info: invalid download index %1").arg(index));
+    return nullptr;
   }
 
   return m_ActiveDownloads.at(index)->m_FileInfo;
@@ -1434,8 +1468,9 @@ const ModRepositoryFileInfo* DownloadManager::getFileInfo(int index) const
 
 void DownloadManager::markInstalled(int index)
 {
+  std::lock_guard<std::recursive_mutex> lock(m_ListMutex);
   if ((index < 0) || (index >= m_ActiveDownloads.size())) {
-    throw MyException(tr("mark installed: invalid download index %1").arg(index));
+    return;
   }
 
   // Avoid triggering refreshes from DirWatcher
@@ -1475,8 +1510,9 @@ DownloadManager::DownloadInfo* DownloadManager::getDownloadInfo(QString fileName
 
 void DownloadManager::markUninstalled(int index)
 {
+  std::lock_guard<std::recursive_mutex> lock(m_ListMutex);
   if ((index < 0) || (index >= m_ActiveDownloads.size())) {
-    throw MyException(tr("mark uninstalled: invalid download index %1").arg(index));
+    return;
   }
 
   // Avoid triggering refreshes from DirWatcher
@@ -1542,6 +1578,7 @@ QString DownloadManager::getFileNameFromNetworkReply(QNetworkReply* reply)
 void DownloadManager::setState(DownloadManager::DownloadInfo* info,
                                DownloadManager::DownloadState state)
 {
+  std::lock_guard<std::recursive_mutex> lock(m_ListMutex);
   int row = 0;
   for (int i = 0; i < m_ActiveDownloads.size(); ++i) {
     if (m_ActiveDownloads[i] == info) {
@@ -1948,8 +1985,10 @@ DownloadManager::onDownloadRemoved(const std::function<void(int)>& callback)
 
 int DownloadManager::indexByName(const QString& fileName) const
 {
+  std::lock_guard<std::recursive_mutex> lock(m_ListMutex);
   for (int i = 0; i < m_ActiveDownloads.size(); ++i) {
-    if (m_ActiveDownloads[i]->m_FileName == fileName) {
+    if (m_ActiveDownloads[i]->m_FileName.compare(fileName, Qt::CaseInsensitive) ==
+        0) {
       return i;
     }
   }
@@ -2164,7 +2203,7 @@ void DownloadManager::downloadFinished(int index)
     info = m_ActiveDownloads[index];
   else {
     info = findDownload(this->sender(), &index);
-    if (info == nullptr && index == 0) {
+    if (info == nullptr && index == 0 && !m_ActiveDownloads.isEmpty()) {
       info = m_ActiveDownloads[index];
     }
   }
@@ -2260,14 +2299,15 @@ void DownloadManager::downloadFinished(int index)
       QString newName = getFileNameFromNetworkReply(reply);
       QString oldName = QFileInfo(info->m_Output).fileName();
 
-      startDisableDirWatcher();
-      if (!newName.isEmpty() && (oldName.isEmpty())) {
-        info->setName(getDownloadFileName(newName), true);
-      } else {
-        info->setName(m_OutputDirectory + "/" + info->m_FileName,
-                      true);  // don't rename but remove the ".unfinished" extension
+      {
+        ScopedDisableDirWatcher scopedDirWatcher(this);
+        if (!newName.isEmpty() && (oldName.isEmpty())) {
+          info->setName(getDownloadFileName(newName), true);
+        } else {
+          info->setName(m_OutputDirectory + "/" + info->m_FileName,
+                        true);  // don't rename but remove the ".unfinished" extension
+        }
       }
-      endDisableDirWatcher();
 
       if (!isNexus) {
         setState(info, STATE_READY);
@@ -2305,9 +2345,8 @@ void DownloadManager::metaDataChanged()
   if (info != nullptr) {
     QString newName = getFileNameFromNetworkReply(info->m_Reply);
     if (!newName.isEmpty() && (info->m_FileName.isEmpty())) {
-      startDisableDirWatcher();
+      ScopedDisableDirWatcher scopedDirWatcher(this);
       info->setName(getDownloadFileName(newName), true);
-      endDisableDirWatcher();
       refreshAlphabeticalTranslation();
       if (!info->m_Output.isOpen() &&
           !info->m_Output.open(QIODevice::WriteOnly | QIODevice::Append)) {
