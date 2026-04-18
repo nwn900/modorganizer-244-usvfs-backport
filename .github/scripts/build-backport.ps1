@@ -250,26 +250,106 @@ function Get-DependencySnapshots([string]$Version) {
     switch ($Version) {
         "2.5.0" {
             return [ordered]@{
-                "cmake_common"  = "46fe31997a7afd182a40c2e98b5d5813ac8ffce3"
-                "uibase"        = "e1b3012c241a573d04447201c0241dab3d97474d"
-                "githubpp"      = "308c00967d1237e1ff8589f8aa36ad8b016a662a"
-                "bsatk"         = "37052a8c321d402edf0b21321c36e2fb900857e8"
-                "esptk"         = "1857c566a5c54e88fd0e00ec3578cb1f3f8fcde7"
-                "archive"       = "8c3834a8f905f266c01e199657ab66d7073d5b1b"
-                "lootcli"       = "460a29d3fa4c260db192c18741ac8dd21a549ae3"
-                "game_gamebryo" = "de53b9256d0e82d179812c138d04979ad7d471ce"
+                "cmake_common"                   = "46fe31997a7afd182a40c2e98b5d5813ac8ffce3"
+                "uibase"                         = "e1b3012c241a573d04447201c0241dab3d97474d"
+                "archive"                        = "8c3834a8f905f266c01e199657ab66d7073d5b1b"
+                "lootcli"                        = "460a29d3fa4c260db192c18741ac8dd21a549ae3"
+                "esptk"                          = "1857c566a5c54e88fd0e00ec3578cb1f3f8fcde7"
+                "bsatk"                          = "37052a8c321d402edf0b21321c36e2fb900857e8"
+                "nxmhandler"                     = "9876f57cd508c56028ec16ba0967ef1ead6fc47d"
+                "helper"                         = "ce072e46a781bfb3b1e3ba20b32df81f7486cdb4"
+                "githubpp"                       = "308c00967d1237e1ff8589f8aa36ad8b016a662a"
+                "game_gamebryo"                  = "de53b9256d0e82d179812c138d04979ad7d471ce"
+                "bsapacker"                      = "70eca305d817f392c276bf5f25c9a82a4d4ac272"
+                "preview_bsa"                    = "c4f79927bcad35106860fa57ae4ac869ec4f8e29"
+                "game_oblivion"                  = "e0a1ea31124b472277f9e55ea012848c9c7a9d7b"
+                "game_nehrim"                    = "19a57cd3c0688c3ae0d90a4bc85d6fc54d24294e"
+                "game_fallout3"                  = "662f6993ad94395c8259a8e75cf80900a16909da"
+                "game_fallout4"                  = "33e09cae135515c70c3bb079a56bd4984e78632e"
+                "game_fallout4vr"                = "76e285cddb9512f027dfec49d7e31fa6d6b33a03"
+                "game_fallout76"                 = "41cd9409d1c654bdc95a1ed7bc1403f42c137d7a"
+                "game_falloutnv"                 = "41b906539739c1306909f425d586dd04be184980"
+                "game_morrowind"                 = "257a1032f38f979b526dee6dd18eb67422c8394e"
+                "game_skyrim"                    = "c01f48e22a0419f2d468467b8afe14a4953f6431"
+                "game_skyrimse"                  = "0dbe98bbb2deddaf8f97e831b485c96d0026cc2a"
+                "game_skyrimvr"                  = "c5946daee7a561477669efbeef71cb66ef669120"
+                "game_starfield"                 = "6e72e7c0f5216f96abbdb45cdd024e4d2145524e"
+                "game_ttw"                       = "9227a6e914714336634beb329cfbfbbcb428bc18"
+                "game_enderal"                   = "e48bb7595922ca4295ca7c539eb8d6917a0bd798"
+                "game_enderalse"                 = "b7ba2bf7f6036eba5fc2d357d74ac1efc5f89b26"
+                "tool_inieditor"                 = "acd9dae0a3e855493bef29aa64e2e39362d107c8"
+                "tool_inibakery"                 = "09a15e37170639f038ac81f7555ab3f2b39407e8"
+                "preview_base"                   = "1bfa64842e018f912c4627a48bd545067e5d4310"
+                "diagnose_basic"                 = "51099bed28f2cf33b70fc0d4d93ca3742129634e"
+                "check_fnis"                     = "e68b6b77f0485a2b4d4d9a53b8616877548ba812"
+                "installer_bain"                 = "3c673c171e5b8992801ef369a4cacc311e8998e2"
+                "installer_manual"               = "a9f97dd619751cbc67e5a3fa6ee2c70f0bb4b23a"
+                "installer_bundle"               = "6d89f9da86134ad16a42872da71091f6d1ffc702"
+                "installer_quick"                = "74c2338de92b8f7a3e134cba89b7ce5adbf971d7"
+                "installer_fomod"                = "66b7e50eed1d1a1a8e896ece1d5befd7cdfff4eb"
+                "installer_fomod_csharp"         = "280ee55e9935d600bf1ea66fbe6bf23037da7119"
+                "installer_omod"                 = "c1895b0eab285ff1f1290159f942dfb292e626b6"
+                "installer_wizard"               = "a0ca112ed0dddde50793afc011a0d462606b4636"
+                "bsa_extractor"                  = "767a305e66b63b57fafc9e327eaf70ff860e4db3"
+                "plugin_python"                  = "ebede37865f252ead84ffbcc8a0d6a3063a5da6b"
+                "tool_configurator"              = "0587e54455a59234f4bfecd9f6c9acad1443233c"
+                "fnistool"                       = "c676913a34fcfe1a8741fdaf3569adc8bf95dcbc"
+                "basic_games"                    = "4d7a7cc280ca84a6040f30ee4be602d280cfed1a"
+                "script_extender_plugin_checker" = "d2c028d240643ba1955cc01f3955311711695ad3"
+                "form43_checker"                 = "a0b03094f52d5ff44bb85f1f0ab536c1a783ca60"
+                "preview_dds"                    = "eb0d408b1d694cd0f3a1eb367713613268d0630a"
             }
         }
         "2.5.2" {
             return [ordered]@{
-                "cmake_common"  = "8abcb29e0810e07f9a464458264b904e9017e633"
-                "uibase"        = "44201d70f7c1a6cda55da86458dc5b8b4665c47b"
-                "githubpp"      = "308c00967d1237e1ff8589f8aa36ad8b016a662a"
-                "bsatk"         = "2882fd352bdd97d4bc67bedafeba6d55c269cdeb"
-                "esptk"         = "9d9708bc827fdfa9019e24e0bdd3ed7d35d1553e"
-                "archive"       = "a13e224c17fb0f2210305cb3dcc442f25f2fd58c"
-                "lootcli"       = "460a29d3fa4c260db192c18741ac8dd21a549ae3"
-                "game_gamebryo" = "0076e5431bd7fffb4977c724a92027e6e4f11f2e"
+                "cmake_common"                   = "8abcb29e0810e07f9a464458264b904e9017e633"
+                "uibase"                         = "44201d70f7c1a6cda55da86458dc5b8b4665c47b"
+                "archive"                        = "a13e224c17fb0f2210305cb3dcc442f25f2fd58c"
+                "lootcli"                        = "460a29d3fa4c260db192c18741ac8dd21a549ae3"
+                "esptk"                          = "9d9708bc827fdfa9019e24e0bdd3ed7d35d1553e"
+                "bsatk"                          = "2882fd352bdd97d4bc67bedafeba6d55c269cdeb"
+                "nxmhandler"                     = "9876f57cd508c56028ec16ba0967ef1ead6fc47d"
+                "helper"                         = "ce072e46a781bfb3b1e3ba20b32df81f7486cdb4"
+                "githubpp"                       = "308c00967d1237e1ff8589f8aa36ad8b016a662a"
+                "game_gamebryo"                  = "0076e5431bd7fffb4977c724a92027e6e4f11f2e"
+                "bsapacker"                      = "f78080df28b63801f608edc1f130d399a8110125"
+                "preview_bsa"                    = "567d8ac549824cff3d9122b671b62f7471bd02a4"
+                "game_oblivion"                  = "c4589dd80a89b23aff9501c845991dacb3e454b5"
+                "game_nehrim"                    = "53800b4c32525579729493e532d65f2f487c0d43"
+                "game_fallout3"                  = "825995cbb74e8cdafde3686a478585dfa5bf32f5"
+                "game_fallout4"                  = "1e1371792a357deef6f7699625a849bc808a1806"
+                "game_fallout4vr"                = "50282b37fd0c9ce8f457a4212ca4b688a97e78b6"
+                "game_fallout76"                 = "960493fc41a1b78824ea25c203fbc532749b579e"
+                "game_falloutnv"                 = "52ea004207cd3834d65290b2b0e34f7132858982"
+                "game_morrowind"                 = "e94c25703a07a13a45565a4c80672572f5a14e51"
+                "game_skyrim"                    = "9eb2ef88eedc5a8bc65ee7d060af4bd84ebd63aa"
+                "game_skyrimse"                  = "82ac42f83f717b4884c8c551cb67b545e15177bc"
+                "game_skyrimvr"                  = "5c6fd594a46b81f12d348d8e45571387babfd6b8"
+                "game_starfield"                 = "14a5cc3817eee727437d7f84c0ff01148a576d23"
+                "game_ttw"                       = "6cae291a4693fd206c456a2fad1d3808f2e87dfb"
+                "game_enderal"                   = "7ad95a082d216adf92d99c501f38cc8c8b286261"
+                "game_enderalse"                 = "ba9e90fb7182d0d72c2c2537b4cedac36fc9db6b"
+                "tool_inieditor"                 = "acd9dae0a3e855493bef29aa64e2e39362d107c8"
+                "tool_inibakery"                 = "de678f72ea8bf13c72456644d81da5b93c82274d"
+                "preview_base"                   = "f6c7a516d342e09da48f07d8d6203a0576ad583a"
+                "diagnose_basic"                 = "7fc98c5d4e2f35baceb98f19ded145b89fbd68a3"
+                "check_fnis"                     = "e68b6b77f0485a2b4d4d9a53b8616877548ba812"
+                "installer_bain"                 = "d5442056f812121fb62f680214687064cffba7b9"
+                "installer_manual"               = "52d81792fa2f22a9fa9711b5d502263f5f4531cd"
+                "installer_bundle"               = "eeef5840df81a971795ec7a1442555c1459aa627"
+                "installer_quick"                = "ff7e4cb91754669a7f3c42d8aa7ae9913f8c7255"
+                "installer_fomod"                = "fc263f2d923c704b4853c11ed4f8b8cf3920f30d"
+                "installer_fomod_csharp"         = "4928105afc480e105bbd2318e8d1a63a641b8e45"
+                "installer_omod"                 = "9d59d545126d26bb10b36760c86029d859575f28"
+                "installer_wizard"               = "e510e1c3eda48086e44dcd9185da2d4abd9a5701"
+                "bsa_extractor"                  = "8acaabb3c11562979a9dba10c5d18b7a33452ff9"
+                "plugin_python"                  = "e11d5ec00d45d971f65d13b1d48b08397a2b4ff9"
+                "tool_configurator"              = "0587e54455a59234f4bfecd9f6c9acad1443233c"
+                "fnistool"                       = "c676913a34fcfe1a8741fdaf3569adc8bf95dcbc"
+                "basic_games"                    = "e88d2d2d1546619cd2e6f17d071cdb50bab99866"
+                "script_extender_plugin_checker" = "d2c028d240643ba1955cc01f3955311711695ad3"
+                "form43_checker"                 = "2b1e37535326c9a688075ffbed59c4d2cb01a77a"
+                "preview_dds"                    = "028af7e9a1cba5a7cdca4181be547e137b8cf621"
             }
         }
         default {
@@ -344,19 +424,6 @@ if ($modTaskContent -notmatch 'BUILD_TESTING') {
 
     $replacement = @(
         '                .def("BUILD_TESTING", "OFF")'
-        $line
-    ) -join "`r`n"
-    Replace-InFile -Path $modTask -Needle $line -Replacement $replacement
-}
-
-if ($modTaskContent -notmatch 'FMT_ROOT') {
-    $line = ($modTaskContent -split "`r?`n" | Where-Object { $_ -like '*.def("SPDLOG_ROOT",*' } | Select-Object -First 1)
-    if (-not $line) {
-        throw "Could not locate SPDLOG_ROOT definition in $modTask"
-    }
-
-    $replacement = @(
-        '                .def("FMT_ROOT", fmt::source_path())'
         $line
     ) -join "`r`n"
     Replace-InFile -Path $modTask -Needle $line -Replacement $replacement
