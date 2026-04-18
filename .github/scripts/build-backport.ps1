@@ -582,8 +582,34 @@ Write-Step "Building all enabled tasks with mob"
 try {
     Invoke-Mob -MobExe $mobExe -IniPath $iniPath -Prefix $prefix -Arguments @("build", "--no-fetch-task")
 } catch {
+    $bsatkSln = Join-Path $prefix "build\modorganizer_super\bsatk\vsbuild\bsatk.sln"
     $previewBsaSln = Join-Path $prefix "build\modorganizer_super\preview_bsa\vsbuild\preview_bsa.sln"
-    if (Test-Path -LiteralPath $previewBsaSln) {
+    $bsatkLib = Join-Path $prefix "install\libs\bsatk.lib"
+    $mobRecovered = $false
+
+    if ((Test-Path -LiteralPath $bsatkSln) -and
+        (Test-Path -LiteralPath $previewBsaSln) -and
+        -not (Test-Path -LiteralPath $bsatkLib)) {
+        Write-Step "bsatk.lib missing after mob failure; building bsatk.sln directly"
+        & $msbuild $bsatkSln -m -noLogo -verbosity:minimal `
+            -p:Configuration=RelWithDebInfo `
+            -p:Platform=x64 `
+            -p:PlatformToolset=v143 `
+            -p:WindowsTargetPlatformVersion=$sdkVersion
+        if (($LASTEXITCODE -eq 0) -and (Test-Path -LiteralPath $bsatkLib)) {
+            try {
+                Write-Step "Retrying mob build after direct bsatk build"
+                Invoke-Mob -MobExe $mobExe -IniPath $iniPath -Prefix $prefix -Arguments @("build", "--no-fetch-task")
+                $mobRecovered = $true
+            } catch {
+                Write-Step "Mob retry after direct bsatk build still failed"
+            }
+        } else {
+            Write-Step "Direct bsatk build exited with code $LASTEXITCODE"
+        }
+    }
+
+    if (-not $mobRecovered -and (Test-Path -LiteralPath $previewBsaSln)) {
         Write-Step "Re-running preview_bsa.sln directly for diagnostics"
         & $msbuild $previewBsaSln -m -noLogo -verbosity:minimal `
             -p:Configuration=RelWithDebInfo `
@@ -593,7 +619,9 @@ try {
         Write-Step "Direct preview_bsa diagnostic build exited with code $LASTEXITCODE"
     }
 
-    throw
+    if (-not $mobRecovered) {
+        throw
+    }
 }
 
 $installRoot = Join-Path $prefix "install"
