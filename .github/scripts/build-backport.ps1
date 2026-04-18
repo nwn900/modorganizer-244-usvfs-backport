@@ -162,15 +162,14 @@ Invoke-Checked -FailureMessage "failed to checkout mob ref" -Script {
 $modTask = Join-Path $mobRoot "src\tasks\modorganizer.cpp"
 $modTaskContent = Get-Content -LiteralPath $modTask -Raw
 if ($modTaskContent -notmatch 'BUILD_TESTING') {
-    $needle = '.def("GTEST_ROOT",'
-    $line = ($modTaskContent -split "`r?`n" | Where-Object { $_ -like '*GTEST_ROOT*' } | Select-Object -First 1)
+    $line = ($modTaskContent -split "`r?`n" | Where-Object { $_ -like '*.root(root));*' } | Select-Object -First 1)
     if (-not $line) {
-        throw "Could not locate GTEST_ROOT definition in $modTask"
+        throw "Could not locate cmake chain terminator in $modTask"
     }
 
     $replacement = @(
-        $line
         '                .def("BUILD_TESTING", "OFF")'
+        $line
     ) -join "`r`n"
     Replace-InFile -Path $modTask -Needle $line -Replacement $replacement
 }
