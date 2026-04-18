@@ -445,6 +445,17 @@ function Apply-UsvfsPatchFallback([string]$PatchedSourceDir, [string]$MO2Version
         }
     }
 
+    $nestedIncludeDir = Join-Path $PatchedSourceDir 'include\usvfs'
+    if (Test-Path $nestedIncludeDir) {
+        Get-ChildItem -LiteralPath $nestedIncludeDir -Filter '*.h' -File | ForEach-Object {
+            $compatPath = Join-Path $PatchedSourceDir ('include\' + $_.Name)
+            if (-not (Test-Path $compatPath)) {
+                Write-Utf8NoBom $compatPath ("#pragma once`n#include `"usvfs/" + $_.Name + "`"`n")
+                Write-Info "Created compatibility header: $compatPath"
+            }
+        }
+    }
+
     # Now we can safely guard the whole sharedparameters.cpp
     $sharedParametersPath = Join-Path $PatchedSourceDir 'src\usvfs_dll\sharedparameters.cpp'
     if (Test-Path $sharedParametersPath) {
