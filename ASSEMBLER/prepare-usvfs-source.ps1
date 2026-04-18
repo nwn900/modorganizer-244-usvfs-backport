@@ -157,6 +157,37 @@ function Ensure-LegacyUsvfsCompatTree([string]$LegacyRoot, [string]$RepoUrl) {
     }
 }
 
+function Ensure-Udis86OpcodeTables([string]$PatchedSourceDir) {
+    $udis86Root = Join-Path $PatchedSourceDir 'udis86'
+    $itabCPath = Join-Path $udis86Root 'libudis86\itab.c'
+    $itabHPath = Join-Path $udis86Root 'libudis86\itab.h'
+    if ((Test-Path $itabCPath) -and (Test-Path $itabHPath)) {
+        return
+    }
+
+    $generatorPath = Join-Path $udis86Root 'scripts\ud_itab.py'
+    $optablePath = Join-Path $udis86Root 'docs\x86\optable.xml'
+    $outputDir = Join-Path $udis86Root 'libudis86'
+    if (!(Test-Path $generatorPath) -or !(Test-Path $optablePath) -or !(Test-Path $outputDir)) {
+        throw "Unable to locate udis86 generator inputs under $udis86Root"
+    }
+
+    $pythonCommand = Get-Command python -ErrorAction SilentlyContinue
+    if (-not $pythonCommand) {
+        throw "python was not found in PATH while generating udis86 opcode tables"
+    }
+
+    Write-Info "Generating udis86 opcode tables"
+    & $pythonCommand.Source $generatorPath $optablePath $outputDir
+    if ($LASTEXITCODE -ne 0) {
+        throw "Failed to generate udis86 opcode tables"
+    }
+
+    if (!(Test-Path $itabCPath) -or !(Test-Path $itabHPath)) {
+        throw "udis86 opcode table generation did not produce itab.c/itab.h"
+    }
+}
+
 function Apply-UsvfsPatchFallback([string]$PatchedSourceDir, [string]$MO2Version) {
     if ($MO2Version -eq '2.4.4') {
         $assemblyMacro = 'USVFS_USE_ASSEMBLY_PARAMETER_EXPORTS;USVFS_TARGET_V244'
@@ -859,6 +890,8 @@ if (($parametersText -notmatch '#ifndef USVFS_USE_ASSEMBLY_PARAMETER_EXPORTS') -
     Write-Info "Patch markers missing or incomplete after git apply; enforcing scripted fallback"
     Apply-UsvfsPatchFallback $sourceDir $MO2Version
 }
+
+Ensure-Udis86OpcodeTables -PatchedSourceDir $sourceDir
 
 if (!$BoostPath -and $UseVcpkgBoost) {
     $compatRoot = Join-Path $PSScriptRoot "boost-compat-$MO2Version-$Triplet"
