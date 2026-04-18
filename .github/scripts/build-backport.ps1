@@ -246,6 +246,59 @@ function Patch-UibaseLoggingCompatibility([string]$Prefix) {
     }
 }
 
+function Get-DependencySnapshots([string]$Version) {
+    switch ($Version) {
+        "2.5.0" {
+            return [ordered]@{
+                "cmake_common"  = "46fe31997a7afd182a40c2e98b5d5813ac8ffce3"
+                "uibase"        = "e1b3012c241a573d04447201c0241dab3d97474d"
+                "githubpp"      = "308c00967d1237e1ff8589f8aa36ad8b016a662a"
+                "bsatk"         = "37052a8c321d402edf0b21321c36e2fb900857e8"
+                "esptk"         = "1857c566a5c54e88fd0e00ec3578cb1f3f8fcde7"
+                "archive"       = "8c3834a8f905f266c01e199657ab66d7073d5b1b"
+                "lootcli"       = "460a29d3fa4c260db192c18741ac8dd21a549ae3"
+                "game_gamebryo" = "de53b9256d0e82d179812c138d04979ad7d471ce"
+            }
+        }
+        "2.5.2" {
+            return [ordered]@{
+                "cmake_common"  = "8abcb29e0810e07f9a464458264b904e9017e633"
+                "uibase"        = "44201d70f7c1a6cda55da86458dc5b8b4665c47b"
+                "githubpp"      = "308c00967d1237e1ff8589f8aa36ad8b016a662a"
+                "bsatk"         = "2882fd352bdd97d4bc67bedafeba6d55c269cdeb"
+                "esptk"         = "9d9708bc827fdfa9019e24e0bdd3ed7d35d1553e"
+                "archive"       = "a13e224c17fb0f2210305cb3dcc442f25f2fd58c"
+                "lootcli"       = "460a29d3fa4c260db192c18741ac8dd21a549ae3"
+                "game_gamebryo" = "0076e5431bd7fffb4977c724a92027e6e4f11f2e"
+            }
+        }
+        default {
+            return [ordered]@{}
+        }
+    }
+}
+
+function Pin-DependencySnapshots([string]$Prefix, [string]$Version) {
+    $snapshots = Get-DependencySnapshots -Version $Version
+    if ($snapshots.Count -eq 0) {
+        return
+    }
+
+    $superRoot = Join-Path $Prefix "build\modorganizer_super"
+    foreach ($entry in $snapshots.GetEnumerator()) {
+        $repoPath = Join-Path $superRoot $entry.Key
+        if (-not (Test-Path -LiteralPath $repoPath)) {
+            throw "Expected dependency repository at $repoPath"
+        }
+
+        Write-Step ("Pinning {0} to {1}" -f $entry.Key, $entry.Value.Substring(0, 12))
+        & git -C $repoPath checkout --detach $entry.Value
+        if ($LASTEXITCODE -ne 0) {
+            throw "Failed to pin $($entry.Key) to $($entry.Value)"
+        }
+    }
+}
+
 $workspace = if ($env:GITHUB_WORKSPACE) { $env:GITHUB_WORKSPACE } else { (Get-Location).Path }
 $runnerTemp = if ($env:RUNNER_TEMP) { $env:RUNNER_TEMP } else { Join-Path $workspace ".runner-temp" }
 $vsPath = if ($env:MO2_VS) { $env:MO2_VS } else { throw "MO2_VS is not set" }
@@ -296,6 +349,19 @@ if ($modTaskContent -notmatch 'BUILD_TESTING') {
     Replace-InFile -Path $modTask -Needle $line -Replacement $replacement
 }
 
+if ($modTaskContent -notmatch 'FMT_ROOT') {
+    $line = ($modTaskContent -split "`r?`n" | Where-Object { $_ -like '*.def("SPDLOG_ROOT",*' } | Select-Object -First 1)
+    if (-not $line) {
+        throw "Could not locate SPDLOG_ROOT definition in $modTask"
+    }
+
+    $replacement = @(
+        '                .def("FMT_ROOT", fmt::source_path())'
+        $line
+    ) -join "`r`n"
+    Replace-InFile -Path $modTask -Needle $line -Replacement $replacement
+}
+
 Write-Step "Bootstrapping mob"
 Push-Location $mobRoot
 try {
@@ -325,7 +391,7 @@ $ini = @(
     "no_pull       = false"
     "ignore_ts     = false"
     "revert_ts     = false"
-    "git_shallow   = true"
+    "git_shallow   = false"
     ""
     "[modorganizer:task]"
     "mo_org    = $UserOrg"
@@ -413,6 +479,9 @@ Ensure-BuildPythonPip -Prefix $prefix -RunnerTemp $runnerTemp
 
 Write-Step "Fetching full build workspace with mob"
 Invoke-Mob -MobExe $mobExe -IniPath $iniPath -Prefix $prefix -Arguments @("build", "--no-build-task")
+
+Write-Step "Pinning Mod Organizer dependency snapshots"
+Pin-DependencySnapshots -Prefix $prefix -Version $TargetVersion
 
 Write-Step "Patching fetched uibase sources"
 Patch-UibaseLoggingCompatibility -Prefix $prefix
