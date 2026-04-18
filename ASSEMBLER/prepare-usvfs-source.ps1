@@ -119,6 +119,44 @@ function Invoke-GitProcess([string[]]$Arguments, [switch]$Quiet) {
     }
 }
 
+function Ensure-LegacyUsvfsCompatTree([string]$LegacyRoot, [string]$RepoUrl) {
+    $requiredDirs = @('asmjit', 'spdlog', 'udis86')
+    $missingDirs = @($requiredDirs | Where-Object { -not (Test-Path (Join-Path $LegacyRoot $_)) })
+    if ($missingDirs.Count -eq 0) {
+        return
+    }
+
+    $parent = Split-Path -Parent $LegacyRoot
+    if (!(Test-Path $LegacyRoot)) {
+        if (!(Test-Path $parent)) {
+            New-Item -ItemType Directory -Path $parent | Out-Null
+        }
+
+        Write-Info "Cloning legacy usvfs source into $LegacyRoot"
+        $cloneResult = Invoke-GitProcess @('clone', $RepoUrl, $LegacyRoot)
+        if ($cloneResult.ExitCode -ne 0) {
+            throw "Failed to clone legacy usvfs source into $LegacyRoot"
+        }
+    }
+
+    Write-Info "Preparing legacy usvfs source at $LegacyRoot"
+    foreach ($gitArgs in @(
+        @('-C', $LegacyRoot, 'fetch', '--all', '--tags'),
+        @('-C', $LegacyRoot, 'checkout', '--force', 'v0.5.0'),
+        @('-C', $LegacyRoot, 'submodule', 'update', '--init', '--recursive')
+    )) {
+        $result = Invoke-GitProcess -Arguments $gitArgs
+        if ($result.ExitCode -ne 0) {
+            throw "Failed to prepare legacy usvfs source at $LegacyRoot"
+        }
+    }
+
+    $missingDirs = @($requiredDirs | Where-Object { -not (Test-Path (Join-Path $LegacyRoot $_)) })
+    if ($missingDirs.Count -gt 0) {
+        throw "Legacy usvfs source is missing required directories: $($missingDirs -join ', ')"
+    }
+}
+
 function Apply-UsvfsPatchFallback([string]$PatchedSourceDir, [string]$MO2Version) {
     if ($MO2Version -eq '2.4.4') {
         $assemblyMacro = 'USVFS_USE_ASSEMBLY_PARAMETER_EXPORTS;USVFS_TARGET_V244'
@@ -272,7 +310,7 @@ function Apply-UsvfsPatchFallback([string]$PatchedSourceDir, [string]$MO2Version
     $toRemove = @(
         'hookcallcontext.cpp', 'hookcontext.cpp', 'hookmanager.cpp',
         'kernel32.cpp', 'ntdll.cpp', 'redirectiontree.cpp',
-        'semaphore.cpp', 'usvfs.cpp', 'usvfsparameters.cpp'
+        'semaphore.cpp', 'sharedparameters.cpp', 'usvfs.cpp', 'usvfsparameters.cpp'
     )
     foreach ($name in $toRemove) {
         $nodes = $xml.SelectNodes("//ms:ClCompile[contains(@Include, '$name')]", $ns)
@@ -733,7 +771,8 @@ Invoke-GitProcess @('-C', $sourceDir, 'submodule', 'update', '--init', '--recurs
 
 if ($MO2Version -eq '2.5.2') {
     Write-Info "Copying legacy submodules for v2.5.2 vsbuild compatibility..."
-    $v250Path = Join-Path $PSScriptRoot "..\external\usvfs-mo2-v2.5.0"
+    $v250Path = Join-Path $repoRoot 'external\usvfs-mo2-v2.5.0'
+    Ensure-LegacyUsvfsCompatTree -LegacyRoot $v250Path -RepoUrl $RepoUrl
     if (Test-Path "$v250Path\asmjit") {
         if (Test-Path "$sourceDir\asmjit") { Remove-Item "$sourceDir\asmjit" -Recurse -Force }
         Copy-Item "$v250Path\asmjit" -Destination "$sourceDir\asmjit" -Recurse -Force
