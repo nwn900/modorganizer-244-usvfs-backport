@@ -433,6 +433,18 @@ function Apply-UsvfsPatchFallback([string]$PatchedSourceDir, [string]$MO2Version
         Write-Error "[prepare-usvfs] SharedParameters header NOT FOUND in any expected location!"
     }
 
+    $compatHeaders = @(
+        @{ Path = 'include\sharedparameters.h'; Target = 'usvfs/sharedparameters.h' },
+        @{ Path = 'include\usvfsparameters.h'; Target = 'usvfs/usvfsparameters.h' }
+    )
+    foreach ($compatHeader in $compatHeaders) {
+        $compatPath = Join-Path $PatchedSourceDir $compatHeader.Path
+        if (-not (Test-Path $compatPath)) {
+            Write-Utf8NoBom $compatPath ("#pragma once`n#include `"" + $compatHeader.Target + "`"`n")
+            Write-Info "Created compatibility header: $compatPath"
+        }
+    }
+
     # Now we can safely guard the whole sharedparameters.cpp
     $sharedParametersPath = Join-Path $PatchedSourceDir 'src\usvfs_dll\sharedparameters.cpp'
     if (Test-Path $sharedParametersPath) {

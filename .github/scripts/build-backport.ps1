@@ -253,7 +253,7 @@ function Get-DependencySnapshots([string]$Version) {
                 "cmake_common"                   = "46fe31997a7afd182a40c2e98b5d5813ac8ffce3"
                 "uibase"                         = "e1b3012c241a573d04447201c0241dab3d97474d"
                 "archive"                        = "8c3834a8f905f266c01e199657ab66d7073d5b1b"
-                "lootcli"                        = "460a29d3fa4c260db192c18741ac8dd21a549ae3"
+                "lootcli"                        = "987eed53c41fb1c26ac949ded9da4e84d042b1b0"
                 "esptk"                          = "1857c566a5c54e88fd0e00ec3578cb1f3f8fcde7"
                 "bsatk"                          = "37052a8c321d402edf0b21321c36e2fb900857e8"
                 "nxmhandler"                     = "9876f57cd508c56028ec16ba0967ef1ead6fc47d"
