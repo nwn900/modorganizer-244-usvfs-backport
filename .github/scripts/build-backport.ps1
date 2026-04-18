@@ -169,6 +169,38 @@ function Get-ArchiveWithFallback {
     throw "Unable to seed archive $OutFile"
 }
 
+function Find-BuildPythonExe([string]$Prefix) {
+    $preferred = Get-ChildItem -LiteralPath (Join-Path $Prefix "build") -Filter "python.exe" -Recurse -File |
+        Where-Object { $_.FullName -like '*PCBuild\amd64\python.exe' } |
+        Select-Object -First 1
+    if ($preferred) {
+        return $preferred.FullName
+    }
+
+    $fallback = Get-ChildItem -LiteralPath (Join-Path $Prefix "build") -Filter "python.exe" -Recurse -File |
+        Select-Object -First 1
+    if ($fallback) {
+        return $fallback.FullName
+    }
+
+    throw "Unable to locate fetched python.exe under $Prefix"
+}
+
+function Ensure-BuildPythonPip([string]$Prefix, [string]$RunnerTemp) {
+    $pythonExe = Find-BuildPythonExe -Prefix $Prefix
+    & $pythonExe -m pip --version *> $null
+    if ($LASTEXITCODE -eq 0) {
+        return
+    }
+
+    $getPip = Join-Path $RunnerTemp "get-pip.py"
+    Invoke-WebRequest -Uri "https://bootstrap.pypa.io/get-pip.py" -OutFile $getPip
+    & $pythonExe $getPip
+    if ($LASTEXITCODE -ne 0) {
+        throw "Failed to install pip into $pythonExe"
+    }
+}
+
 $workspace = if ($env:GITHUB_WORKSPACE) { $env:GITHUB_WORKSPACE } else { (Get-Location).Path }
 $runnerTemp = if ($env:RUNNER_TEMP) { $env:RUNNER_TEMP } else { Join-Path $workspace ".runner-temp" }
 $vsPath = if ($env:MO2_VS) { $env:MO2_VS } else { throw "MO2_VS is not set" }
@@ -302,8 +334,37 @@ $sevenZipSeed = switch ($TargetVersion) {
     }
 }
 
+$explorerppSeed = switch ($TargetVersion) {
+    "2.5.2" {
+        @{
+            Name = "explorerpp_x64.zip"
+            Urls = @(
+                "https://download.explorerplusplus.com/stable/1.4.0/explorerpp_x64.zip"
+            )
+        }
+    }
+    default {
+        @{
+            Name = "explorer++_1.3.5_x64.zip"
+            Urls = @(
+                "https://master.dl.sourceforge.net/project/explorerplus/Explorer++/1.3.5/explorer++_1.3.5_x64.zip?viasf=1",
+                "https://downloads.sourceforge.net/project/explorerplus/Explorer++/1.3.5/explorer++_1.3.5_x64.zip"
+            )
+        }
+    }
+}
+
 Write-Step "Seeding archived 7-Zip source package"
 Get-ArchiveWithFallback -OutFile (Join-Path $downloadsDir $sevenZipSeed.Name) -Urls $sevenZipSeed.Urls
+
+Write-Step "Seeding archived Explorer++ package"
+Get-ArchiveWithFallback -OutFile (Join-Path $downloadsDir $explorerppSeed.Name) -Urls $explorerppSeed.Urls
+
+Write-Step "Fetching python toolchain first"
+Invoke-Mob -MobExe $mobExe -IniPath $iniPath -Prefix $prefix -Arguments @("build", "python", "--no-build-task")
+
+Write-Step "Injecting pip into fetched python toolchain"
+Ensure-BuildPythonPip -Prefix $prefix -RunnerTemp $runnerTemp
 
 Write-Step "Fetching full build workspace with mob"
 Invoke-Mob -MobExe $mobExe -IniPath $iniPath -Prefix $prefix -Arguments @("build", "--no-build-task")
