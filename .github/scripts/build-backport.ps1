@@ -512,7 +512,7 @@ $sevenZipSeed = switch ($TargetVersion) {
     }
 }
 
- $explorerppSeed = switch ($TargetVersion) {
+$explorerppSeed = switch ($TargetVersion) {
     "2.5.2" {
         @{
             Name = "explorerpp_x64.zip"
@@ -532,11 +532,24 @@ $sevenZipSeed = switch ($TargetVersion) {
     }
 }
 
+$bzip2Seed = @{
+    Name = "bzip2-1.0.8.tar.gz"
+    Urls = @(
+        "https://gstreamer.freedesktop.org/src/mirror/bzip2/bzip2-1.0.8.tar.gz",
+        "https://pub.sortix.org/mirror/bzip2/bzip2-1.0.8.tar.gz",
+        "https://sourceware.mirror.garr.it/bzip2/bzip2-1.0.8.tar.gz",
+        "https://sourceware.org/pub/bzip2/bzip2-1.0.8.tar.gz"
+    )
+}
+
 Write-Step "Seeding archived 7-Zip source package"
 Get-ArchiveWithFallback -OutFile (Join-Path $downloadsDir $sevenZipSeed.Name) -Urls $sevenZipSeed.Urls
 
 Write-Step "Seeding archived Explorer++ package"
 Get-ArchiveWithFallback -OutFile (Join-Path $downloadsDir $explorerppSeed.Name) -Urls $explorerppSeed.Urls
+
+Write-Step "Seeding archived bzip2 source package"
+Get-ArchiveWithFallback -OutFile (Join-Path $downloadsDir $bzip2Seed.Name) -Urls $bzip2Seed.Urls
 
 Write-Step "Fetching python toolchain first"
 Invoke-Mob -MobExe $mobExe -IniPath $iniPath -Prefix $prefix -Arguments @("build", "python", "--no-build-task")
