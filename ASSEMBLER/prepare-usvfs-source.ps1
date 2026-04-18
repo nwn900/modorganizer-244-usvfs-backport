@@ -796,6 +796,34 @@ const char* WINAPI USVFSVersionString()
     Write-Utf8NoBom $loggerPath $loggerText
 }
 
+function Copy-CompatFileIfMissing([string]$Source, [string]$Destination) {
+    if (!(Test-Path $Source) -or (Test-Path $Destination)) {
+        return
+    }
+
+    $parent = Split-Path -Parent $Destination
+    if ($parent -and !(Test-Path $parent)) {
+        New-Item -ItemType Directory -Path $parent -Force | Out-Null
+    }
+
+    Copy-Item -LiteralPath $Source -Destination $Destination -Force
+    Write-Info "Created compatibility file: $Destination"
+}
+
+function Copy-CompatTreeIfMissing([string]$Source, [string]$Destination) {
+    if (!(Test-Path $Source) -or (Test-Path $Destination)) {
+        return
+    }
+
+    $parent = Split-Path -Parent $Destination
+    if ($parent -and !(Test-Path $parent)) {
+        New-Item -ItemType Directory -Path $parent -Force | Out-Null
+    }
+
+    Copy-Item -LiteralPath $Source -Destination $Destination -Recurse -Force
+    Write-Info "Created compatibility tree: $Destination"
+}
+
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 if ([System.IO.Path]::IsPathRooted($SourceDir)) {
     $sourceDir = [System.IO.Path]::GetFullPath($SourceDir)
@@ -856,6 +884,16 @@ if ($applyCheck.ExitCode -eq 0) {
         Write-Info "Git patch did not apply cleanly; using scripted fallback"
         Apply-UsvfsPatchFallback $sourceDir $MO2Version
     }
+}
+
+if ($MO2Version -ne '2.4.4') {
+    Write-Info "Backfilling legacy usvfs test layout for vsbuild compatibility..."
+    Copy-CompatFileIfMissing (Join-Path $sourceDir 'test\test_utils\test_helpers.cpp') (Join-Path $sourceDir 'src\shared\test_helpers.cpp')
+    Copy-CompatFileIfMissing (Join-Path $sourceDir 'test\test_utils\test_helpers.h') (Join-Path $sourceDir 'src\shared\test_helpers.h')
+    Copy-CompatTreeIfMissing (Join-Path $sourceDir 'test\tinjectlib_test\testinject_bin') (Join-Path $sourceDir 'test\testinject_bin')
+    Copy-CompatTreeIfMissing (Join-Path $sourceDir 'test\tinjectlib_test\testinject_dll') (Join-Path $sourceDir 'test\testinject_dll')
+    Copy-CompatTreeIfMissing (Join-Path $sourceDir 'test\usvfs_test_runner\test_file_operations') (Join-Path $sourceDir 'test\test_file_operations')
+    Copy-CompatTreeIfMissing (Join-Path $sourceDir 'test\usvfs_test_runner\usvfs_test') (Join-Path $sourceDir 'test\usvfs_test')
 }
 
 $vcxPath = Join-Path $sourceDir "vsbuild\usvfs_dll.vcxproj"
@@ -1038,9 +1076,6 @@ Get-ChildItem -Path $sourceDir -Include '*.vcxproj', '*.props' -Recurse | ForEac
     if ($MO2Version -eq '2.5.2') {
         if ($vcxText -match 'ud_itab\.py') {
             $vcxText = [regex]::Replace($vcxText, '(?s)<CustomBuildStep>[^<]*<Command>[^<]*python \.\.\\udis86\\scripts\\ud_itab\.py.*?</Command>[^<]*</CustomBuildStep>', '')
-        }
-        if ($vcxText -match 'test_helpers\.cpp') {
-            $vcxText = [regex]::Replace($vcxText, '(?s)<ClCompile Include="\.\.\\src\\shared\\test_helpers\.cpp".*?(?:/>|</ClCompile>)', '')
         }
         if ($vcxText -match '<AdditionalIncludeDirectories>' -and $vcxText -notmatch '\.\.\\include\\usvfs') {
             $vcxText = [regex]::Replace($vcxText, '(?i)(<AdditionalIncludeDirectories>)', '${1}..\include\usvfs;')
