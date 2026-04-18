@@ -11,7 +11,7 @@ permissions:
 
 env:
   TARGET_MO2_VERSION: 2.5.2
-  MOB_REF: v2.5.2
+  MOB_REF: eba5bf4
   MO_BRANCH: master
   USER_BRANCH: codex/backport-252-download-install-fixes
   USER_ORG: nwn900
