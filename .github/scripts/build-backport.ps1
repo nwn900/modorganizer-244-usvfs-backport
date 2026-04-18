@@ -578,6 +578,11 @@ Invoke-Checked -FailureMessage "prepare-usvfs-source.ps1 failed" -Script {
         -SourceDir $usvfsRoot
 }
 
+if ($TargetVersion -eq "2.5.0") {
+    Write-Step "Building bsatk first to seed preview_bsa link inputs"
+    Invoke-Mob -MobExe $mobExe -IniPath $iniPath -Prefix $prefix -Arguments @("build", "bsatk", "--no-fetch-task")
+}
+
 Write-Step "Building all enabled tasks with mob"
 try {
     Invoke-Mob -MobExe $mobExe -IniPath $iniPath -Prefix $prefix -Arguments @("build", "--no-fetch-task")
