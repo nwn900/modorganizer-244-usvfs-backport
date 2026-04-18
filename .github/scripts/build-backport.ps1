@@ -124,6 +124,51 @@ function New-ChecksumsFile([string]$Root, [string]$ZipPath, [string]$OutFile) {
     Set-AsciiContent -Path $OutFile -Content ($lines -join "`r`n")
 }
 
+function Get-ArchiveWithFallback {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$OutFile,
+
+        [Parameter(Mandatory = $true)]
+        [string[]]$Urls
+    )
+
+    $validate = {
+        param([string]$Path)
+        if (-not (Test-Path -LiteralPath $Path)) {
+            return $false
+        }
+
+        & 7z.exe t -bd $Path *> $null
+        return ($LASTEXITCODE -eq 0)
+    }
+
+    if (Test-Path -LiteralPath $OutFile) {
+        if (& $validate $OutFile) {
+            return
+        }
+
+        Remove-Item -LiteralPath $OutFile -Force -ErrorAction SilentlyContinue
+    }
+
+    foreach ($url in $Urls) {
+        try {
+            Invoke-WebRequest -Uri $url -MaximumRedirection 5 -OutFile $OutFile
+            if ((Get-Item -LiteralPath $OutFile).Length -gt 0 -and (& $validate $OutFile)) {
+                return
+            }
+        } catch {
+            Write-Warning ("Failed to download {0}: {1}" -f $url, $_.Exception.Message)
+        }
+
+        if (Test-Path -LiteralPath $OutFile) {
+            Remove-Item -LiteralPath $OutFile -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    throw "Unable to seed archive $OutFile"
+}
+
 $workspace = if ($env:GITHUB_WORKSPACE) { $env:GITHUB_WORKSPACE } else { (Get-Location).Path }
 $runnerTemp = if ($env:RUNNER_TEMP) { $env:RUNNER_TEMP } else { Join-Path $workspace ".runner-temp" }
 $vsPath = if ($env:MO2_VS) { $env:MO2_VS } else { throw "MO2_VS is not set" }
@@ -203,7 +248,6 @@ $ini = @(
     "no_pull       = false"
     "ignore_ts     = false"
     "revert_ts     = false"
-    "configuration = RelWithDebInfo"
     "git_shallow   = true"
     ""
     "[modorganizer:task]"
@@ -230,6 +274,36 @@ $ini = @(
     "vs         = $vsPath"
 ) -join "`r`n"
 Set-AsciiContent -Path $iniPath -Content $ini
+
+$downloadsDir = Join-Path $prefix "downloads"
+New-Item -ItemType Directory -Path $downloadsDir -Force | Out-Null
+
+$sevenZipSeed = switch ($TargetVersion) {
+    "2.5.2" {
+        @{
+            Name = "7z2405-src.7z"
+            Urls = @(
+                "https://master.dl.sourceforge.net/project/sevenzip/7-Zip/24.05/7z2405-src.7z?viasf=1",
+                "https://downloads.sourceforge.net/project/sevenzip/7-Zip/24.05/7z2405-src.7z",
+                "https://sourceforge.net/projects/sevenzip/files/7-Zip/24.05/7z2405-src.7z/download"
+            )
+        }
+    }
+    default {
+        @{
+            Name = "7z2301-src.7z"
+            Urls = @(
+                "https://master.dl.sourceforge.net/project/sevenzip/7-Zip/23.01/7z2301-src.7z?viasf=1",
+                "https://www.7-zip.org/a/7z2301-src.7z",
+                "https://downloads.sourceforge.net/project/sevenzip/7-Zip/23.01/7z2301-src.7z",
+                "https://sourceforge.net/projects/sevenzip/files/7-Zip/23.01/7z2301-src.7z/download"
+            )
+        }
+    }
+}
+
+Write-Step "Seeding archived 7-Zip source package"
+Get-ArchiveWithFallback -OutFile (Join-Path $downloadsDir $sevenZipSeed.Name) -Urls $sevenZipSeed.Urls
 
 Write-Step "Fetching full build workspace with mob"
 Invoke-Mob -MobExe $mobExe -IniPath $iniPath -Prefix $prefix -Arguments @("build", "--no-build-task")
