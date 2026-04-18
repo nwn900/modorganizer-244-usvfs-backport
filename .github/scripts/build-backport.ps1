@@ -579,7 +579,22 @@ Invoke-Checked -FailureMessage "prepare-usvfs-source.ps1 failed" -Script {
 }
 
 Write-Step "Building all enabled tasks with mob"
-Invoke-Mob -MobExe $mobExe -IniPath $iniPath -Prefix $prefix -Arguments @("build", "--no-fetch-task")
+try {
+    Invoke-Mob -MobExe $mobExe -IniPath $iniPath -Prefix $prefix -Arguments @("build", "--no-fetch-task")
+} catch {
+    $previewBsaSln = Join-Path $prefix "build\modorganizer_super\preview_bsa\vsbuild\preview_bsa.sln"
+    if (Test-Path -LiteralPath $previewBsaSln) {
+        Write-Step "Re-running preview_bsa.sln directly for diagnostics"
+        & $msbuild $previewBsaSln -m -noLogo -verbosity:minimal `
+            -p:Configuration=RelWithDebInfo `
+            -p:Platform=x64 `
+            -p:PlatformToolset=v143 `
+            -p:WindowsTargetPlatformVersion=$sdkVersion
+        Write-Step "Direct preview_bsa diagnostic build exited with code $LASTEXITCODE"
+    }
+
+    throw
+}
 
 $installRoot = Join-Path $prefix "install"
 $modOrganizerExe = Find-ModOrganizerExe -InstallRoot $installRoot
