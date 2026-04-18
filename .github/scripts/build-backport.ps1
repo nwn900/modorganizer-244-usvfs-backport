@@ -201,6 +201,51 @@ function Ensure-BuildPythonPip([string]$Prefix, [string]$RunnerTemp) {
     }
 }
 
+function Find-UibaseLogPath([string]$Prefix) {
+    $candidates = @(
+        (Join-Path $Prefix "build\modorganizer_super\uibase\src\log.cpp"),
+        (Join-Path $Prefix "build\uibase\src\log.cpp")
+    )
+
+    foreach ($candidate in $candidates) {
+        if (Test-Path -LiteralPath $candidate) {
+            return $candidate
+        }
+    }
+
+    $fallback = Get-ChildItem -LiteralPath (Join-Path $Prefix "build") -Filter "log.cpp" -Recurse -File |
+        Where-Object { $_.FullName -like '*\uibase\src\log.cpp' } |
+        Select-Object -First 1
+    if ($fallback) {
+        return $fallback.FullName
+    }
+
+    return $null
+}
+
+function Patch-UibaseLoggingCompatibility([string]$Prefix) {
+    $logPath = Find-UibaseLogPath -Prefix $Prefix
+    if (-not $logPath) {
+        return
+    }
+
+    $content = Get-Content -LiteralPath $logPath -Raw
+    $updated = $content
+    $updated = [regex]::Replace(
+        $updated,
+        '(?m)^(\s*)e\.message\s*=\s*std::string\(m\.payload\);\s*$',
+        '$1e.message.assign(m.payload.data(), m.payload.size());')
+    $updated = [regex]::Replace(
+        $updated,
+        '(?m)^(\s*)e\.formattedMessage\s*=\s*std::string\(formatted\);\s*$',
+        '$1e.formattedMessage.assign(formatted.begin(), formatted.end());')
+
+    if ($updated -ne $content) {
+        Set-AsciiContent -Path $logPath -Content $updated
+        Write-Step "Patched uibase logging compatibility"
+    }
+}
+
 $workspace = if ($env:GITHUB_WORKSPACE) { $env:GITHUB_WORKSPACE } else { (Get-Location).Path }
 $runnerTemp = if ($env:RUNNER_TEMP) { $env:RUNNER_TEMP } else { Join-Path $workspace ".runner-temp" }
 $vsPath = if ($env:MO2_VS) { $env:MO2_VS } else { throw "MO2_VS is not set" }
@@ -368,6 +413,9 @@ Ensure-BuildPythonPip -Prefix $prefix -RunnerTemp $runnerTemp
 
 Write-Step "Fetching full build workspace with mob"
 Invoke-Mob -MobExe $mobExe -IniPath $iniPath -Prefix $prefix -Arguments @("build", "--no-build-task")
+
+Write-Step "Patching fetched uibase sources"
+Patch-UibaseLoggingCompatibility -Prefix $prefix
 
 $usvfsRoot = Join-Path $prefix "build\usvfs"
 if (-not (Test-Path -LiteralPath $usvfsRoot)) {
