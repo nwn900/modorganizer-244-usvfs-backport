@@ -40,6 +40,7 @@ along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 #include <boost/signals2.hpp>
 #include <idownloadmanager.h>
 #include <modrepositoryfileinfo.h>
+#include <mutex>
 #include <set>
 using namespace boost::accumulators;
 
@@ -624,12 +625,13 @@ private:
   MOBase::IPluginGame const* m_ManagedGame;
 
   QTimer m_TimeoutTimer;
+  mutable std::recursive_mutex m_ListMutex;
 };
 
 class ScopedDisableDirWatcher
 {
 public:
-  ScopedDisableDirWatcher(DownloadManager* downloadManager);
+  explicit ScopedDisableDirWatcher(DownloadManager* downloadManager);
   ~ScopedDisableDirWatcher();
 
 private:

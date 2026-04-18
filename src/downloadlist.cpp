@@ -112,6 +112,9 @@ QVariant DownloadList::data(const QModelIndex& index, int role) const
     if (pendingDownload) {
       std::tuple<QString, int, int> nexusids =
           m_manager.getPendingDownload(index.row() - m_manager.numTotalDownloads());
+      if (std::get<1>(nexusids) == -1) {
+        return QVariant();
+      }
       switch (index.column()) {
       case COL_NAME:
         return tr("< game %1 mod %2 file %3 >")
@@ -135,7 +138,7 @@ QVariant DownloadList::data(const QModelIndex& index, int role) const
         } else {
           const MOBase::ModRepositoryFileInfo* info =
               m_manager.getFileInfo(index.row());
-          return info->modName;
+          return info != nullptr ? info->modName : QVariant();
         }
       }
       case COL_VERSION: {
@@ -144,7 +147,7 @@ QVariant DownloadList::data(const QModelIndex& index, int role) const
         } else {
           const MOBase::ModRepositoryFileInfo* info =
               m_manager.getFileInfo(index.row());
-          return info->version.canonicalString();
+          return info != nullptr ? info->version.canonicalString() : QVariant();
         }
       }
       case COL_ID: {
@@ -217,6 +220,9 @@ QVariant DownloadList::data(const QModelIndex& index, int role) const
                    "menu to re-retrieve.");
       } else {
         const MOBase::ModRepositoryFileInfo* info = m_manager.getFileInfo(index.row());
+        if (info == nullptr) {
+          return QVariant();
+        }
         return QString("%1 (ID %2) %3<br><span>%4</span>")
             .arg(info->modName)
             .arg(m_manager.getModID(index.row()))
