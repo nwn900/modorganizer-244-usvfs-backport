@@ -956,7 +956,7 @@ if (Test-Path $usvfsTestBasePath) {
     $usvfsTestBaseText = Replace-RequiredText `
         -Text $usvfsTestBaseText `
         -Needle ('    usvfsSetCrashDumpPath(parameters.get(), "");' + $testNl) `
-        -Replacement @"
+        -Replacement ((@"
     const char* crashDumpPath = std::getenv("USVFS_TEST_CRASH_DUMP_PATH");
     if (crashDumpPath && *crashDumpPath) {
       usvfsSetCrashDumpPath(parameters.get(), crashDumpPath);
@@ -964,7 +964,7 @@ if (Test-Path $usvfsTestBasePath) {
     } else {
       std::cout << "trace: usvfsSetCrashDumpPath skipped" << std::endl;
     }
-"@ -replace "`n", $testNl `
+"@) -replace "`n", $testNl) `
         -Description $usvfsTestBasePath
     $usvfsTestBaseText = Replace-RequiredText `
         -Text $usvfsTestBaseText `
