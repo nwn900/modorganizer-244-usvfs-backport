@@ -1067,6 +1067,9 @@ if (Test-Path $projectPathObj) {
     Write-Utf8NoBom $projectPathObj $projectTextObj
 }
 
+$asmjitNestedHeader = Test-Path (Join-Path $sourceDir 'asmjit\src\asmjit\asmjit.h')
+$asmjitFlatHeader = Test-Path (Join-Path $sourceDir 'asmjit\src\asmjit.h')
+
 Get-ChildItem -Path $sourceDir -Include '*.vcxproj', '*.props' -Recurse | ForEach-Object {
     $vcxTextOrig = Get-Content -LiteralPath $_.FullName -Raw
     $vcxText = $vcxTextOrig
@@ -1082,8 +1085,25 @@ Get-ChildItem -Path $sourceDir -Include '*.vcxproj', '*.props' -Recurse | ForEac
         if ($vcxText -match '<AdditionalIncludeDirectories>' -and $vcxText -notmatch '\.\.\\include\\usvfs') {
             $vcxText = [regex]::Replace($vcxText, '(?i)(<AdditionalIncludeDirectories>)', '${1}..\include\usvfs;')
         }
-        if ($vcxText -match '\\asmjit\\src\\asmjit;') {
-            $vcxText = [regex]::Replace($vcxText, '\\asmjit\\src\\asmjit;', '\asmjit\src;')
+        if ($vcxText.Contains('C:\Games\MO2\build\usvfs_clean\udis86\libudis86;')) {
+            $vcxText = $vcxText.Replace(
+                'C:\Games\MO2\build\usvfs_clean\udis86\libudis86;',
+                '..\udis86\libudis86;')
+        }
+        if ($asmjitFlatHeader -and $vcxText.Contains('..\asmjit\src\asmjit;')) {
+            $vcxText = $vcxText.Replace('..\asmjit\src\asmjit;', '..\asmjit\src;')
+        }
+        if ($asmjitNestedHeader -and -not $vcxText.Contains('..\asmjit\src\asmjit;')) {
+            if ($vcxText.Contains('..\asmjit\src;')) {
+                $vcxText = $vcxText.Replace(
+                    '..\asmjit\src;',
+                    '..\asmjit\src\asmjit;..\asmjit\src;')
+            } elseif ($vcxText -match '<AdditionalIncludeDirectories>') {
+                $vcxText = [regex]::Replace(
+                    $vcxText,
+                    '(?i)(<AdditionalIncludeDirectories>)',
+                    '${1}..\asmjit\src\asmjit;')
+            }
         }
         if ($vcxText -match '\\udis86;(%\(AdditionalIncludeDirectories\)|<)') {
             $vcxText = [regex]::Replace($vcxText, '\\udis86;(%\(AdditionalIncludeDirectories\)|<)', '\udis86;..\udis86\libudis86;$1')
