@@ -14,7 +14,7 @@ if ([string]::IsNullOrWhiteSpace($SourceDir)) {
     $SourceDir = (Join-Path $PSScriptRoot "..\external\usvfs-mo2-v$MO2Version")
 }
 if ([string]::IsNullOrWhiteSpace($Commit)) {
-    if ($MO2Version -eq '2.5.2') { $Commit = 'v0.5.0' }
+    if ($MO2Version -eq '2.5.2') { $Commit = 'v0.5.6.2' }
     elseif ($MO2Version -eq '2.5.0') { $Commit = 'v0.5.0' }
     else { $Commit = '7368b25' }
 }
@@ -93,10 +93,51 @@ function Get-BoostLinkLibraries([string]$LibDir) {
         return @()
     }
 
-    return @(
+    $libraries = @(
         Get-ChildItem -LiteralPath $LibDir -File -ErrorAction SilentlyContinue |
             Where-Object { $_.Name -like 'boost_*.lib' -or $_.Name -like 'libboost_*.lib' } |
             Sort-Object Name -Unique |
+            Select-Object -ExpandProperty Name
+    )
+    if ($libraries.Count -eq 0) {
+        return @()
+    }
+
+    $bestByComponent = @{}
+    foreach ($name in $libraries) {
+        if ($name -match '^(?:lib)?boost_(.+?)-vc') {
+            $component = $Matches[1].ToLowerInvariant()
+        } else {
+            $component = $name.ToLowerInvariant()
+        }
+
+        $priority = 4
+        if ($name -like 'libboost_*.lib' -and $name -notmatch '-(?:s)?gd-') {
+            if ($name -match '-s-') {
+                $priority = 1
+            } else {
+                $priority = 0
+            }
+        } elseif ($name -like 'boost_*.lib' -and $name -notmatch '-(?:s)?gd-') {
+            $priority = 2
+        } elseif ($name -like 'libboost_*.lib') {
+            $priority = 3
+        }
+
+        $current = $bestByComponent[$component]
+        if (($null -eq $current) -or
+            ($priority -lt $current.Priority) -or
+            ($priority -eq $current.Priority -and $name -lt $current.Name)) {
+            $bestByComponent[$component] = [PSCustomObject]@{
+                Name = $name
+                Priority = $priority
+            }
+        }
+    }
+
+    return @(
+        $bestByComponent.Values |
+            Sort-Object Name |
             Select-Object -ExpandProperty Name
     )
 }
@@ -1164,6 +1205,9 @@ Get-ChildItem -Path $sourceDir -Include '*.vcxproj', '*.props' -Recurse | ForEac
     if ($MO2Version -eq '2.5.2') {
         if ($vcxText -match 'ud_itab\.py') {
             $vcxText = [regex]::Replace($vcxText, '(?s)<CustomBuildStep>[^<]*<Command>[^<]*python \.\.\\udis86\\scripts\\ud_itab\.py.*?</Command>[^<]*</CustomBuildStep>', '')
+        }
+        if ($vcxText -match 'test_helpers\.cpp') {
+            $vcxText = [regex]::Replace($vcxText, '(?s)<ClCompile Include="\.\.\\src\\shared\\test_helpers\.cpp".*?(?:/>|</ClCompile>)', '')
         }
         if ($vcxText -match '<AdditionalIncludeDirectories>' -and $vcxText -notmatch '\.\.\\include\\usvfs') {
             $vcxText = [regex]::Replace($vcxText, '(?i)(<AdditionalIncludeDirectories>)', '${1}..\include\usvfs;')
