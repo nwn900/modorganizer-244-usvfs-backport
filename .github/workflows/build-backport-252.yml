@@ -90,4 +90,8 @@ jobs:
         with:
           name: modorganizer-2.5.2-backport-build
           if-no-files-found: warn
-          path: ci-output
+          path: |
+            ci-output
+            ${{ runner.temp }}/mo2-prefix-252/mob-ci.log
+            ${{ runner.temp }}/mo2-prefix-252/build/usvfs/test/bin/*.log
+            ${{ runner.temp }}/mo2-prefix-252/build/usvfs/test/temp/**/*.log
