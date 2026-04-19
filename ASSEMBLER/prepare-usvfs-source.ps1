@@ -1206,9 +1206,6 @@ Get-ChildItem -Path $sourceDir -Include '*.vcxproj', '*.props' -Recurse | ForEac
         if ($vcxText -match 'ud_itab\.py') {
             $vcxText = [regex]::Replace($vcxText, '(?s)<CustomBuildStep>[^<]*<Command>[^<]*python \.\.\\udis86\\scripts\\ud_itab\.py.*?</Command>[^<]*</CustomBuildStep>', '')
         }
-        if ($vcxText -match 'test_helpers\.cpp') {
-            $vcxText = [regex]::Replace($vcxText, '(?s)<ClCompile Include="\.\.\\src\\shared\\test_helpers\.cpp".*?(?:/>|</ClCompile>)', '')
-        }
         if ($vcxText -match '<AdditionalIncludeDirectories>' -and $vcxText -notmatch '\.\.\\include\\usvfs') {
             $vcxText = [regex]::Replace($vcxText, '(?i)(<AdditionalIncludeDirectories>)', '${1}..\include\usvfs;')
         }
