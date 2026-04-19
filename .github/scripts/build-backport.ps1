@@ -365,8 +365,8 @@ function Get-DependencySnapshots([string]$Version) {
     switch ($Version) {
         "2.5.0" {
             return [ordered]@{
-                "cmake_common"                   = "46fe31997a7afd182a40c2e98b5d5813ac8ffce3"
-                "uibase"                         = "e1b3012c241a573d04447201c0241dab3d97474d"
+                "cmake_common"                   = "8abcb29e0810e07f9a464458264b904e9017e633"
+                "uibase"                         = "44201d70f7c1a6cda55da86458dc5b8b4665c47b"
                 "archive"                        = "8c3834a8f905f266c01e199657ab66d7073d5b1b"
                 "lootcli"                        = "987eed53c41fb1c26ac949ded9da4e84d042b1b0"
                 "esptk"                          = "1857c566a5c54e88fd0e00ec3578cb1f3f8fcde7"
