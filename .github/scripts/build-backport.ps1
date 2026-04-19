@@ -270,6 +270,58 @@ function Patch-UibaseLoggingCompatibility([string]$Prefix) {
     }
 }
 
+function Patch-MobInterruptCleanup([string]$MobRoot) {
+    $fsUtil = Join-Path $MobRoot "src\utility\fs.cpp"
+    $content = Get-Content -LiteralPath $fsUtil -Raw
+    if ($content -match 'Sleep\(100\)') {
+        return
+    }
+
+    $needle = @'
+    void interruption_file::remove()
+    {
+        cx_.trace(context::interruption, "removing interrupt file {}", file());
+        op::delete_file(cx_, file());
+    }
+'@
+
+    $replacement = @'
+    void interruption_file::remove()
+    {
+        cx_.trace(context::interruption, "removing interrupt file {}", file());
+
+        std::error_code ec;
+        for (int attempt = 0; attempt < 10; ++attempt) {
+            if (!fs::exists(file())) {
+                return;
+            }
+
+            fs::remove(file(), ec);
+            if (!ec) {
+                return;
+            }
+
+            if (attempt == 9) {
+                break;
+            }
+
+            cx_.trace(context::fs,
+                      "delete of interrupt file {} failed on attempt {}, {}; retrying",
+                      file(), attempt + 1, ec.message());
+
+            ec.clear();
+            Sleep(100);
+        }
+
+        cx_.warning(context::fs,
+                    "can't delete interrupt file {}; leaving it in place",
+                    file());
+    }
+'@
+
+    Replace-InFile -Path $fsUtil -Needle $needle -Replacement $replacement
+}
+
 function Get-DependencySnapshots([string]$Version) {
     switch ($Version) {
         "2.5.0" {
@@ -452,6 +504,9 @@ if ($modTaskContent -notmatch 'BUILD_TESTING') {
     ) -join "`r`n"
     Replace-InFile -Path $modTask -Needle $line -Replacement $replacement
 }
+
+Write-Step "Patching mob interrupt cleanup for archive extraction races"
+Patch-MobInterruptCleanup -MobRoot $mobRoot
 
 Write-Step "Bootstrapping mob"
 Push-Location $mobRoot
