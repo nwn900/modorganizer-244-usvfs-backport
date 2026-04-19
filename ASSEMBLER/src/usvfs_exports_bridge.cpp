@@ -576,6 +576,12 @@ std::string windows_error::constructMessage(const std::string& msg, int code) {
 }
 }
 
+#ifndef _WIN64
+void usvfsParameters::setCrashDumpPath(const char* path) {
+    strncpy_s(this->crashDumpsPath, path, _TRUNCATE);
+}
+#endif
+
 extern "C" void WINAPI usvfsAsmUsvfsUpdateParametersImpl(usvfsParameters* p)
 {
   spdlog::get("usvfs")->info(
