@@ -571,11 +571,23 @@ if (-not (Test-Path -LiteralPath $usvfsRoot)) {
     throw "usvfs source not found at $usvfsRoot"
 }
 
+$prepareUsvfsArgs = @{
+    MO2Version = $TargetVersion
+    SourceDir = $usvfsRoot
+}
+if ($TargetVersion -eq "2.5.0") {
+    $boostRoot = Get-ChildItem -LiteralPath (Join-Path $prefix "build") -Directory -Filter "boost_*" |
+        Select-Object -First 1
+    if (-not $boostRoot) {
+        throw "Boost root not found under $prefix\build"
+    }
+
+    $prepareUsvfsArgs.BoostPath = $boostRoot.FullName
+}
+
 Write-Step "Patching usvfs source for $TargetVersion"
 Invoke-Checked -FailureMessage "prepare-usvfs-source.ps1 failed" -Script {
-    & (Join-Path $workspace "ASSEMBLER\prepare-usvfs-source.ps1") `
-        -MO2Version $TargetVersion `
-        -SourceDir $usvfsRoot
+    & (Join-Path $workspace "ASSEMBLER\prepare-usvfs-source.ps1") @prepareUsvfsArgs
 }
 
 Write-Step "Building all enabled tasks with mob"
