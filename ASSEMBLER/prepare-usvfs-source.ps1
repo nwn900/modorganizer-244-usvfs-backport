@@ -843,6 +843,12 @@ const char* WINAPI USVFSVersionString()
             'boost::posix_time::microsec_clock::universal_time()')
     }
 
+    if ($loggerText.Contains('message_queue::remove(queueName.c_str());')) {
+        $loggerText = $loggerText.Replace(
+            'message_queue::remove(queueName.c_str());',
+            'message_queue_interop::remove(queueName.c_str());')
+    }
+
     Write-Utf8NoBom $loggerPath $loggerText
 }
 

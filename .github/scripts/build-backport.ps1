@@ -291,6 +291,22 @@ function Patch-CmakeCommonFmtCompatibility([string]$Prefix) {
         Set-AsciiContent -Path $mo2Path -Content $updated
         Write-Step "Patched cmake_common fmt compatibility"
     }
+
+    $mo2TargetsPath = Join-Path $Prefix "build\modorganizer_super\cmake_common\mo2_targets.cmake"
+    if (-not (Test-Path -LiteralPath $mo2TargetsPath)) {
+        return
+    }
+
+    $targetsContent = Get-Content -LiteralPath $mo2TargetsPath -Raw
+    $targetsUpdated = [regex]::Replace(
+        $targetsContent,
+        '(?m)^(\s*mo2_add_dependencies\(mo2-uibase\s+INTERFACE)\s+fmt(\s+Qt::Widgets\s+Qt::Network\s+Qt::QuickWidgets\))$',
+        '$1$2')
+
+    if ($targetsUpdated -ne $targetsContent) {
+        Set-AsciiContent -Path $mo2TargetsPath -Content $targetsUpdated
+        Write-Step "Patched cmake_common mo2_targets fmt compatibility"
+    }
 }
 
 function Patch-MobInterruptCleanup([string]$MobRoot) {
