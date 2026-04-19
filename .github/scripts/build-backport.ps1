@@ -131,42 +131,6 @@ function Find-BoostRoot([string]$BuildRoot) {
     return $best.Root
 }
 
-function Install-FmtDependency([string]$BuildRoot) {
-    $fmtRoot = Join-Path $BuildRoot "fmt"
-    $fmtSource = Join-Path $BuildRoot "fmt-src"
-    $fmtBuild = Join-Path $fmtRoot "vsbuild"
-    $fmtInstall = Join-Path $fmtRoot "build"
-
-    if (Test-Path -LiteralPath (Join-Path $fmtInstall "lib\cmake\fmt\fmt-config.cmake")) {
-        return $fmtRoot
-    }
-
-    Remove-Item -LiteralPath $fmtRoot -Recurse -Force -ErrorAction SilentlyContinue
-    Remove-Item -LiteralPath $fmtSource -Recurse -Force -ErrorAction SilentlyContinue
-
-    Write-Step "Cloning fmt 11.1.4"
-    Invoke-Checked -FailureMessage "failed to clone fmt" -Script {
-        git clone --branch 11.1.4 --depth 1 https://github.com/fmtlib/fmt $fmtSource
-    }
-
-    Write-Step "Configuring fmt"
-    Invoke-Checked -FailureMessage "failed to configure fmt" -Script {
-        & cmake.exe -S $fmtSource -B $fmtBuild `
-            -G "Visual Studio 17 2022" `
-            -A x64 `
-            -DCMAKE_INSTALL_PREFIX="$fmtInstall" `
-            -DFMT_DOC=OFF `
-            -DFMT_TEST=OFF
-    }
-
-    Write-Step "Building and installing fmt"
-    Invoke-Checked -FailureMessage "failed to build/install fmt" -Script {
-        & cmake.exe --build $fmtBuild --config Release --target install -- /m
-    }
-
-    return $fmtRoot
-}
-
 function New-ChecksumsFile([string]$Root, [string]$ZipPath, [string]$OutFile) {
     $lines = New-Object System.Collections.Generic.List[string]
 
@@ -303,6 +267,29 @@ function Patch-UibaseLoggingCompatibility([string]$Prefix) {
     if ($updated -ne $content) {
         Set-AsciiContent -Path $logPath -Content $updated
         Write-Step "Patched uibase logging compatibility"
+    }
+}
+
+function Patch-CmakeCommonFmtCompatibility([string]$Prefix) {
+    $mo2Path = Join-Path $Prefix "build\modorganizer_super\cmake_common\mo2.cmake"
+    if (-not (Test-Path -LiteralPath $mo2Path)) {
+        return
+    }
+
+    $content = Get-Content -LiteralPath $mo2Path -Raw
+    $updated = $content
+    $updated = [regex]::Replace(
+        $updated,
+        '(?m)^\s*mo2_required_variable\(NAME FMT_ROOT TYPE PATH\)\r?\n',
+        '')
+    $updated = [regex]::Replace(
+        $updated,
+        '(?m)^\s*\$\{FMT_ROOT\}/build\r?\n',
+        '')
+
+    if ($updated -ne $content) {
+        Set-AsciiContent -Path $mo2Path -Content $updated
+        Write-Step "Patched cmake_common fmt compatibility"
     }
 }
 
@@ -528,22 +515,14 @@ Invoke-Checked -FailureMessage "failed to checkout mob ref" -Script {
 
 $modTask = Join-Path $mobRoot "src\tasks\modorganizer.cpp"
 $modTaskContent = Get-Content -LiteralPath $modTask -Raw
-if (($modTaskContent -notmatch 'BUILD_TESTING') -or ($modTaskContent -notmatch 'FMT_ROOT')) {
+if ($modTaskContent -notmatch 'BUILD_TESTING') {
     $line = ($modTaskContent -split "`r?`n" | Where-Object { $_ -like '*.root(root));*' } | Select-Object -First 1)
     if (-not $line) {
         throw "Could not locate cmake chain terminator in $modTask"
     }
 
-    $injections = New-Object System.Collections.Generic.List[string]
-    if ($modTaskContent -notmatch 'BUILD_TESTING') {
-        $injections.Add('                .def("BUILD_TESTING", "OFF")')
-    }
-    if ($modTaskContent -notmatch 'FMT_ROOT') {
-        $injections.Add('                .def("FMT_ROOT", conf().path().build() / "fmt")')
-    }
-
     $replacement = @(
-        $injections
+        '                .def("BUILD_TESTING", "OFF")'
         $line
     ) -join "`r`n"
     Replace-InFile -Path $modTask -Needle $line -Replacement $replacement
@@ -682,12 +661,11 @@ Invoke-Mob -MobExe $mobExe -IniPath $iniPath -Prefix $prefix -Arguments @("build
 Write-Step "Pinning Mod Organizer dependency snapshots"
 Pin-DependencySnapshots -Prefix $prefix -Version $TargetVersion
 
+Write-Step "Patching fetched cmake_common sources"
+Patch-CmakeCommonFmtCompatibility -Prefix $prefix
+
 Write-Step "Patching fetched uibase sources"
 Patch-UibaseLoggingCompatibility -Prefix $prefix
-
-$buildRoot = Join-Path $prefix "build"
-$fmtRoot = Install-FmtDependency -BuildRoot $buildRoot
-Write-Step "Using fmt root $fmtRoot"
 
 $usvfsRoot = Join-Path $prefix "build\usvfs"
 if (-not (Test-Path -LiteralPath $usvfsRoot)) {
@@ -786,6 +764,7 @@ try {
     }
 }
 
+$buildRoot = Join-Path $prefix "build"
 $boostRoot = Find-BoostRoot -BuildRoot $buildRoot
 if ($boostRoot) {
     $env:BOOST_PATH = $boostRoot.FullName
