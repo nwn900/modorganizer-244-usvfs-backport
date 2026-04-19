@@ -920,39 +920,43 @@ if (Test-Path $usvfsTestBasePath) {
             -Description $usvfsTestBasePath
     }
 
-    $usvfsTestBaseNeedle = @"
-    std::unique_ptr<usvfsParameters, decltype(&usvfsFreeParameters)> parameters{
-        usvfsCreateParameters(), &usvfsFreeParameters };
-
-    usvfsSetInstanceName(parameters.get(), "usvfs_test");
-    usvfsSetDebugMode(parameters.get(), false);
-    usvfsSetLogLevel(parameters.get(), LogLevel::Debug);
-    usvfsSetCrashDumpType(parameters.get(), CrashDumpsType::None);
-    usvfsSetCrashDumpPath(parameters.get(), "");
-
-    usvfsInitLogging(false);
-    usvfsCreateVFS(parameters.get());
-
-    m_log_thread = std::thread(&usvfs_connector::usvfs_logger, this);
-"@ -replace "`n", $testNl
-
-    $usvfsTestBaseReplacement = @"
-    std::unique_ptr<usvfsParameters, decltype(&usvfsFreeParameters)> parameters{
-        usvfsCreateParameters(), &usvfsFreeParameters };
-    if (!parameters) {
-      throw_testWinFuncFailed("usvfsCreateParameters", "", ERROR_OUTOFMEMORY);
-    }
-    std::cout << "trace: usvfsCreateParameters ok" << std::endl;
-
-    usvfsSetInstanceName(parameters.get(), "usvfs_test");
-    std::cout << "trace: usvfsSetInstanceName ok" << std::endl;
-    usvfsSetDebugMode(parameters.get(), false);
-    std::cout << "trace: usvfsSetDebugMode ok" << std::endl;
-    usvfsSetLogLevel(parameters.get(), LogLevel::Debug);
-    std::cout << "trace: usvfsSetLogLevel ok" << std::endl;
-    usvfsSetCrashDumpType(parameters.get(), CrashDumpsType::None);
-    std::cout << "trace: usvfsSetCrashDumpType ok" << std::endl;
-
+    $usvfsTestBaseText = Replace-RequiredText `
+        -Text $usvfsTestBaseText `
+        -Needle ("        usvfsCreateParameters(), &usvfsFreeParameters };" + $testNl) `
+        -Replacement ("        usvfsCreateParameters(), &usvfsFreeParameters };" + $testNl +
+            "    if (!parameters) {" + $testNl +
+            '      throw_testWinFuncFailed("usvfsCreateParameters", "", ERROR_OUTOFMEMORY);' + $testNl +
+            "    }" + $testNl +
+            '    std::cout << "trace: usvfsCreateParameters ok" << std::endl;' + $testNl) `
+        -Description $usvfsTestBasePath
+    $usvfsTestBaseText = Replace-RequiredText `
+        -Text $usvfsTestBaseText `
+        -Needle ('    usvfsSetInstanceName(parameters.get(), "usvfs_test");' + $testNl) `
+        -Replacement ('    usvfsSetInstanceName(parameters.get(), "usvfs_test");' + $testNl +
+            '    std::cout << "trace: usvfsSetInstanceName ok" << std::endl;' + $testNl) `
+        -Description $usvfsTestBasePath
+    $usvfsTestBaseText = Replace-RequiredText `
+        -Text $usvfsTestBaseText `
+        -Needle ('    usvfsSetDebugMode(parameters.get(), false);' + $testNl) `
+        -Replacement ('    usvfsSetDebugMode(parameters.get(), false);' + $testNl +
+            '    std::cout << "trace: usvfsSetDebugMode ok" << std::endl;' + $testNl) `
+        -Description $usvfsTestBasePath
+    $usvfsTestBaseText = Replace-RequiredText `
+        -Text $usvfsTestBaseText `
+        -Needle ('    usvfsSetLogLevel(parameters.get(), LogLevel::Debug);' + $testNl) `
+        -Replacement ('    usvfsSetLogLevel(parameters.get(), LogLevel::Debug);' + $testNl +
+            '    std::cout << "trace: usvfsSetLogLevel ok" << std::endl;' + $testNl) `
+        -Description $usvfsTestBasePath
+    $usvfsTestBaseText = Replace-RequiredText `
+        -Text $usvfsTestBaseText `
+        -Needle ('    usvfsSetCrashDumpType(parameters.get(), CrashDumpsType::None);' + $testNl) `
+        -Replacement ('    usvfsSetCrashDumpType(parameters.get(), CrashDumpsType::None);' + $testNl +
+            '    std::cout << "trace: usvfsSetCrashDumpType ok" << std::endl;' + $testNl) `
+        -Description $usvfsTestBasePath
+    $usvfsTestBaseText = Replace-RequiredText `
+        -Text $usvfsTestBaseText `
+        -Needle ('    usvfsSetCrashDumpPath(parameters.get(), "");' + $testNl) `
+        -Replacement @"
     const char* crashDumpPath = std::getenv("USVFS_TEST_CRASH_DUMP_PATH");
     if (crashDumpPath && *crashDumpPath) {
       usvfsSetCrashDumpPath(parameters.get(), crashDumpPath);
@@ -960,19 +964,19 @@ if (Test-Path $usvfsTestBasePath) {
     } else {
       std::cout << "trace: usvfsSetCrashDumpPath skipped" << std::endl;
     }
-
-    usvfsInitLogging(false);
-    std::cout << "trace: usvfsInitLogging ok" << std::endl;
-    usvfsCreateVFS(parameters.get());
-    std::cout << "trace: usvfsCreateVFS ok" << std::endl;
-
-    m_log_thread = std::thread(&usvfs_connector::usvfs_logger, this);
-"@ -replace "`n", $testNl
-
+"@ -replace "`n", $testNl `
+        -Description $usvfsTestBasePath
     $usvfsTestBaseText = Replace-RequiredText `
         -Text $usvfsTestBaseText `
-        -Needle $usvfsTestBaseNeedle `
-        -Replacement $usvfsTestBaseReplacement `
+        -Needle ('    usvfsInitLogging(false);' + $testNl) `
+        -Replacement ('    usvfsInitLogging(false);' + $testNl +
+            '    std::cout << "trace: usvfsInitLogging ok" << std::endl;' + $testNl) `
+        -Description $usvfsTestBasePath
+    $usvfsTestBaseText = Replace-RequiredText `
+        -Text $usvfsTestBaseText `
+        -Needle ('    usvfsCreateVFS(parameters.get());' + $testNl) `
+        -Replacement ('    usvfsCreateVFS(parameters.get());' + $testNl +
+            '    std::cout << "trace: usvfsCreateVFS ok" << std::endl;' + $testNl) `
         -Description $usvfsTestBasePath
     Write-Utf8NoBom $usvfsTestBasePath $usvfsTestBaseText
 }

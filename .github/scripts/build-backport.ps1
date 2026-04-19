@@ -512,40 +512,37 @@ Set-AsciiContent -Path $iniPath -Content $ini
 $downloadsDir = Join-Path $prefix "downloads"
 New-Item -ItemType Directory -Path $downloadsDir -Force | Out-Null
 
-$sevenZipSeed = switch ($TargetVersion) {
-    "2.5.2" {
-        @{
-            Name = "7z2405-src.7z"
-            Urls = @(
-                "https://master.dl.sourceforge.net/project/sevenzip/7-Zip/24.05/7z2405-src.7z?viasf=1",
-                "https://downloads.sourceforge.net/project/sevenzip/7-Zip/24.05/7z2405-src.7z",
-                "https://sourceforge.net/projects/sevenzip/files/7-Zip/24.05/7z2405-src.7z/download"
-            )
-        }
+$useModernMobSeeds = ($TargetVersion -eq "2.5.2") -or ($MobRef -eq "eba5bf4")
+
+$sevenZipSeed = if ($useModernMobSeeds) {
+    @{
+        Name = "7z2405-src.7z"
+        Urls = @(
+            "https://master.dl.sourceforge.net/project/sevenzip/7-Zip/24.05/7z2405-src.7z?viasf=1",
+            "https://downloads.sourceforge.net/project/sevenzip/7-Zip/24.05/7z2405-src.7z",
+            "https://sourceforge.net/projects/sevenzip/files/7-Zip/24.05/7z2405-src.7z/download"
+        )
     }
-    default {
-        @{
-            Name = "7z2301-src.7z"
-            Urls = @(
-                "https://master.dl.sourceforge.net/project/sevenzip/7-Zip/23.01/7z2301-src.7z?viasf=1",
-                "https://www.7-zip.org/a/7z2301-src.7z",
-                "https://downloads.sourceforge.net/project/sevenzip/7-Zip/23.01/7z2301-src.7z",
-                "https://sourceforge.net/projects/sevenzip/files/7-Zip/23.01/7z2301-src.7z/download"
-            )
-        }
+} else {
+    @{
+        Name = "7z2301-src.7z"
+        Urls = @(
+            "https://master.dl.sourceforge.net/project/sevenzip/7-Zip/23.01/7z2301-src.7z?viasf=1",
+            "https://www.7-zip.org/a/7z2301-src.7z",
+            "https://downloads.sourceforge.net/project/sevenzip/7-Zip/23.01/7z2301-src.7z",
+            "https://sourceforge.net/projects/sevenzip/files/7-Zip/23.01/7z2301-src.7z/download"
+        )
     }
 }
 
-$explorerppSeed = switch ($TargetVersion) {
-    "2.5.2" {
+$explorerppSeed = if ($useModernMobSeeds) {
         @{
             Name = "explorerpp_x64.zip"
             Urls = @(
                 "https://download.explorerplusplus.com/stable/1.4.0/explorerpp_x64.zip"
             )
         }
-    }
-    default {
+} else {
         @{
             Name = "explorer++_1.3.5_x64.zip"
             Urls = @(
@@ -553,7 +550,6 @@ $explorerppSeed = switch ($TargetVersion) {
                 "https://downloads.sourceforge.net/project/explorerplus/Explorer++/1.3.5/explorer++_1.3.5_x64.zip"
             )
         }
-    }
 }
 
 $bzip2Seed = @{
