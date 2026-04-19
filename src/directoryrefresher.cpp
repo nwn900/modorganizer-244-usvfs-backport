@@ -22,9 +22,11 @@ along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 #include "shared/filesorigin.h"
 
 #include "envfs.h"
+#include "game_features.h"
 #include "iplugingame.h"
 #include "modinfo.h"
 #include "modinfodialogfwd.h"
+#include "organizercore.h"
 #include "report.h"
 #include "settings.h"
 #include "shared/util.h"
@@ -160,8 +162,8 @@ void dumpStats(std::vector<DirectoryStats>& stats)
   ++run;
 }
 
-DirectoryRefresher::DirectoryRefresher(std::size_t threadCount)
-    : m_threadCount(threadCount), m_lastFileCount(0)
+DirectoryRefresher::DirectoryRefresher(OrganizerCore* core, std::size_t threadCount)
+    : m_Core(*core), m_threadCount(threadCount), m_lastFileCount(0)
 {}
 
 DirectoryEntry* DirectoryRefresher::stealDirectoryStructure()
@@ -205,11 +207,9 @@ void DirectoryRefresher::addModBSAToStructure(DirectoryEntry* root,
                                               const QString& directory,
                                               const QStringList& archives)
 {
-  const IPluginGame* game = qApp->property("managed_game").value<IPluginGame*>();
-
   QStringList loadOrder;
 
-  GamePlugins* gamePlugins = game->feature<GamePlugins>();
+  auto gamePlugins = m_Core.gameFeatures().gameFeature<GamePlugins>();
   if (gamePlugins) {
     loadOrder = gamePlugins->getLoadOrder();
   }
@@ -321,6 +321,7 @@ void DirectoryRefresher::addModToStructure(DirectoryEntry* directoryStructure,
 
 struct ModThread
 {
+  GameFeatures* gameFeatures;
   DirectoryRefreshProgress* progress = nullptr;
   DirectoryEntry* ds                 = nullptr;
   std::wstring modName;
@@ -356,10 +357,8 @@ struct ModThread
     ds->addFromOrigin(walker, modName, path, prio, *stats);
 
     if (Settings::instance().archiveParsing()) {
-      const IPluginGame* game = qApp->property("managed_game").value<IPluginGame*>();
-
       QStringList loadOrder;
-      GamePlugins* gamePlugins = game->feature<GamePlugins>();
+      auto gamePlugins = gameFeatures->gameFeature<GamePlugins>();
       if (gamePlugins) {
         loadOrder = gamePlugins->getLoadOrder();
       }
@@ -421,11 +420,12 @@ void DirectoryRefresher::addMultipleModsFilesToStructure(
       } else {
         auto& mt = g_threads.request();
 
-        mt.progress = progress;
-        mt.ds       = directoryStructure;
-        mt.modName  = e.modName.toStdWString();
-        mt.path     = QDir::toNativeSeparators(e.absolutePath).toStdWString();
-        mt.prio     = prio;
+        mt.gameFeatures = &m_Core.gameFeatures();
+        mt.progress     = progress;
+        mt.ds           = directoryStructure;
+        mt.modName      = e.modName.toStdWString();
+        mt.path         = QDir::toNativeSeparators(e.absolutePath).toStdWString();
+        mt.prio         = prio;
 
         mt.archives.clear();
         for (auto&& a : e.archives) {

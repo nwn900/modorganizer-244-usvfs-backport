@@ -39,6 +39,7 @@ class ModListSortProxy;
 class PluginListSortProxy;
 class Profile;
 class IUserInterface;
+class GameFeatures;
 class PluginContainer;
 class DirectoryRefresher;
 
@@ -106,7 +107,7 @@ public:
   struct ModDataContentHolder
   {
 
-    using Content = ModDataContent::Content;
+    using Content = MOBase::ModDataContent::Content;
 
     /**
      * @return true if the hold list of contents is empty, false otherwise.
@@ -205,7 +206,7 @@ public:
     /**
      * @brief Construct a ModDataContentHold holding the given list of contents.
      */
-    ModDataContentHolder(std::vector<ModDataContent::Content> contents)
+    ModDataContentHolder(std::vector<MOBase::ModDataContent::Content> contents)
         : m_Contents(std::move(contents))
     {}
 
@@ -275,6 +276,9 @@ public:
   //
   PluginContainer& pluginContainer() const;
 
+  // return the game features
+  GameFeatures& gameFeatures() const;
+
   MOBase::IPluginGame const* managedGame() const;
 
   /**
@@ -335,7 +339,8 @@ public:
 
   void updateVFSParams(MOBase::log::Levels logLevel, env::CoreDumpTypes coreDumpType,
                        const QString& coreDumpsPath, std::chrono::seconds spawnDelay,
-                       QString executableBlacklist);
+                       QString executableBlacklist, const QStringList& skipFileSuffixes,
+                       const QStringList& skipDirectories);
 
   void setLogLevel(MOBase::log::Levels level);
 

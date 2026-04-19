@@ -8,6 +8,7 @@
 #include "envmodule.h"
 #include "filedialogmemory.h"
 #include "guessedvalue.h"
+#include "game_features.h"
 #include "imodinterface.h"
 #include "imoinfo.h"
 #include "instancemanager.h"
@@ -89,10 +90,11 @@ QStringList toStringList(InputIterator current, InputIterator end)
 }
 
 OrganizerCore::OrganizerCore(Settings& settings)
-    : m_UserInterface(nullptr), m_PluginContainer(nullptr), m_CurrentProfile(nullptr),
-      m_Settings(settings), m_Updater(&NexusInterface::instance()),
-      m_ModList(m_PluginContainer, this), m_PluginList(*this),
-      m_DirectoryRefresher(new DirectoryRefresher(settings.refreshThreadCount())),
+    : m_UserInterface(nullptr), m_PluginContainer(nullptr), m_GamePlugin(nullptr),
+      m_CurrentProfile(nullptr), m_Settings(settings),
+      m_Updater(&NexusInterface::instance()), m_ModList(m_PluginContainer, this),
+      m_PluginList(*this),
+      m_DirectoryRefresher(new DirectoryRefresher(this, settings.refreshThreadCount())),
       m_DirectoryStructure(new DirectoryEntry(L"data", nullptr, 0)),
       m_VirtualFileTree([this]() {
         return VirtualFileTree::makeTree(m_DirectoryStructure);
@@ -134,16 +136,6 @@ OrganizerCore::OrganizerCore(Settings& settings)
           &m_DownloadManager, SLOT(managedGameChanged(MOBase::IPluginGame const*)));
   connect(this, SIGNAL(managedGameChanged(MOBase::IPluginGame const*)), &m_PluginList,
           SLOT(managedGameChanged(MOBase::IPluginGame const*)));
-
-  connect(this, &OrganizerCore::managedGameChanged,
-          [this](IPluginGame const* gamePlugin) {
-            ModDataContent* contentFeature = gamePlugin->feature<ModDataContent>();
-            if (contentFeature) {
-              m_Contents = ModDataContentHolder(contentFeature->getAllContents());
-            } else {
-              m_Contents = ModDataContentHolder();
-            }
-          });
 
   connect(&m_PluginList, &PluginList::writePluginsList, &m_PluginListsWriter,
           &DelayedFileWriterBase::write);
@@ -273,6 +265,14 @@ void OrganizerCore::connectPlugins(PluginContainer* container)
   connect(m_PluginContainer, &PluginContainer::pluginDisabled, [&](IPlugin* plugin) {
     m_PluginDisabled(plugin);
   });
+  connect(&m_PluginContainer->gameFeatures(), &GameFeatures::modDataContentUpdated,
+          [this](ModDataContent const* contentFeature) {
+            if (contentFeature) {
+              m_Contents = ModDataContentHolder(contentFeature->getAllContents());
+            } else {
+              m_Contents = ModDataContentHolder();
+            }
+          });
 }
 
 void OrganizerCore::setManagedGame(MOBase::IPluginGame* game)
@@ -454,7 +454,7 @@ void OrganizerCore::createDefaultProfile()
   QString profilesPath = settings().paths().profiles();
   if (QDir(profilesPath).entryList(QDir::AllDirs | QDir::NoDotAndDotDot).size() == 0) {
     Profile newProf(QString::fromStdWString(AppConfig::defaultProfileName()),
-                    managedGame(), false);
+                    managedGame(), gameFeatures(), false);
 
     m_ProfileCreated(&newProf);
   }
@@ -469,12 +469,14 @@ void OrganizerCore::updateVFSParams(log::Levels logLevel,
                                     env::CoreDumpTypes coreDumpType,
                                     const QString& crashDumpsPath,
                                     std::chrono::seconds spawnDelay,
-                                    QString executableBlacklist)
+                                    QString executableBlacklist,
+                                    const QStringList& skipFileSuffixes,
+                                    const QStringList& skipDirectories)
 {
   setGlobalCoreDumpType(coreDumpType);
 
   m_USVFS.updateParams(logLevel, coreDumpType, crashDumpsPath, spawnDelay,
-                       executableBlacklist);
+                       executableBlacklist, skipFileSuffixes, skipDirectories);
 }
 
 void OrganizerCore::setLogLevel(log::Levels level)
@@ -484,7 +486,8 @@ void OrganizerCore::setLogLevel(log::Levels level)
   updateVFSParams(
       m_Settings.diagnostics().logLevel(), m_Settings.diagnostics().coreDumpType(),
       QString::fromStdWString(getGlobalCoreDumpPath()),
-      m_Settings.diagnostics().spawnDelay(), m_Settings.executablesBlacklist());
+      m_Settings.diagnostics().spawnDelay(), m_Settings.executablesBlacklist(),
+      m_Settings.skipFileSuffixes(), m_Settings.skipDirectories());
 
   log::getDefault().setLevel(m_Settings.diagnostics().logLevel());
 }
@@ -569,7 +572,8 @@ void OrganizerCore::setCurrentProfile(const QString& profileName)
   // Keep the old profile to emit signal-changed:
   auto oldProfile = std::move(m_CurrentProfile);
 
-  m_CurrentProfile = std::make_unique<Profile>(QDir(profileDir), managedGame());
+  m_CurrentProfile =
+      std::make_unique<Profile>(QDir(profileDir), managedGame(), gameFeatures());
 
   m_ModList.setProfile(m_CurrentProfile.get());
 
@@ -1249,7 +1253,7 @@ void OrganizerCore::refreshBSAList()
 {
   TimeThis tt("OrganizerCore::refreshBSAList()");
 
-  DataArchives* archives = m_GamePlugin->feature<DataArchives>();
+  auto archives = gameFeatures().gameFeature<DataArchives>();
 
   if (archives != nullptr) {
     m_ArchivesInit = false;
@@ -1480,6 +1484,11 @@ void OrganizerCore::requestDownload(const QUrl& url, QNetworkReply* reply)
 PluginContainer& OrganizerCore::pluginContainer() const
 {
   return *m_PluginContainer;
+}
+
+GameFeatures& OrganizerCore::gameFeatures() const
+{
+  return pluginContainer().gameFeatures();
 }
 
 IPluginGame const* OrganizerCore::managedGame() const
@@ -1806,7 +1815,7 @@ void OrganizerCore::syncOverwrite()
 
 QString OrganizerCore::oldMO1HookDll() const
 {
-  if (auto extender = managedGame()->feature<ScriptExtender>()) {
+  if (auto extender = gameFeatures().gameFeature<ScriptExtender>()) {
     QString hookdll =
         QDir::toNativeSeparators(managedGame()->dataDirectory().absoluteFilePath(
             extender->PluginPath() + "/hook.dll"));
@@ -1999,7 +2008,8 @@ std::vector<Mapping> OrganizerCore::fileMapping(const QString& profileName,
   }
 
   IPluginGame* game = qApp->property("managed_game").value<IPluginGame*>();
-  Profile profile(QDir(m_Settings.paths().profiles() + "/" + profileName), game);
+  Profile profile(QDir(m_Settings.paths().profiles() + "/" + profileName), game,
+                  gameFeatures());
 
   MappingType result;
 
@@ -2038,7 +2048,7 @@ std::vector<Mapping> OrganizerCore::fileMapping(const QString& profileName,
   }
 
   if (m_CurrentProfile->localSavesEnabled()) {
-    LocalSavegames* localSaves = game->feature<LocalSavegames>();
+    auto localSaves = gameFeatures().gameFeature<LocalSavegames>();
     if (localSaves != nullptr) {
       MappingType saveMap =
           localSaves->mappings(currentProfile()->absolutePath() + "/saves");

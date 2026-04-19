@@ -53,6 +53,7 @@ along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 #include <algorithm>
 #include <ctime>
 #include <stdexcept>
+#include <unordered_map>
 
 #include "organizercore.h"
 
@@ -177,84 +178,86 @@ void PluginList::refresh(const QString& profileName,
 
   QStringList primaryPlugins = m_GamePlugin->primaryPlugins();
   QStringList enabledPlugins = m_GamePlugin->enabledPlugins();
-  GamePlugins* gamePlugins   = m_GamePlugin->feature<GamePlugins>();
+  auto gamePlugins           = m_Organizer.gameFeatures().gameFeature<GamePlugins>();
   const bool lightPluginsAreSupported =
       gamePlugins ? gamePlugins->lightPluginsAreSupported() : false;
-  const bool overridePluginsAreSupported =
-      gamePlugins ? gamePlugins->overridePluginsAreSupported() : false;
+  const bool mediumPluginsAreSupported =
+      gamePlugins ? gamePlugins->mediumPluginsAreSupported() : false;
+  const bool loadOrderMechanismNone =
+      m_GamePlugin->loadOrderMechanism() == IPluginGame::LoadOrderMechanism::None;
 
   m_CurrentProfile = profileName;
 
-  QStringList availablePlugins;
+  std::unordered_map<QString, FileEntryPtr> availablePlugins;
+  QStringList archiveCandidates;
 
-  std::vector<FileEntryPtr> files = baseDirectory.getFiles();
-  for (FileEntryPtr current : files) {
+  for (FileEntryPtr current : baseDirectory.getFiles()) {
     if (current.get() == nullptr) {
       continue;
     }
-    QString filename = ToQString(current->getName());
+    const QString& filename = ToQString(current->getName());
 
     if (filename.endsWith(".esp", Qt::CaseInsensitive) ||
         filename.endsWith(".esm", Qt::CaseInsensitive) ||
         filename.endsWith(".esl", Qt::CaseInsensitive)) {
+      availablePlugins.insert(std::make_pair(filename, current));
+    } else if (filename.endsWith(".bsa", Qt::CaseInsensitive) ||
+               filename.endsWith("ba2", Qt::CaseInsensitive)) {
+      archiveCandidates.append(filename);
+    }
+  }
 
-      availablePlugins.append(filename);
+  for (const auto& [filename, current] : availablePlugins) {
+    if (m_ESPsByName.contains(filename)) {
+      continue;
+    }
 
-      if (m_ESPsByName.find(filename) != m_ESPsByName.end()) {
-        continue;
+    bool forceLoaded = Settings::instance().game().forceEnableCoreFiles() &&
+                       primaryPlugins.contains(filename, Qt::CaseInsensitive);
+    bool forceEnabled  = enabledPlugins.contains(filename, Qt::CaseInsensitive);
+    bool forceDisabled = loadOrderMechanismNone && !forceLoaded && !forceEnabled;
+    if (!lightPluginsAreSupported && filename.endsWith(".esl")) {
+      forceDisabled = true;
+    }
+
+    bool archive = false;
+    try {
+      FilesOrigin& origin = baseDirectory.getOriginByID(current->getOrigin(archive));
+
+      // name without extension
+      QString baseName = QFileInfo(filename).completeBaseName();
+
+      QString iniPath = baseName + ".ini";
+      bool hasIni     = baseDirectory.findFile(ToWString(iniPath)).get() != nullptr;
+      std::set<QString> loadedArchives;
+      for (const auto& archiveName : archiveCandidates) {
+        if (archiveName.startsWith(baseName, Qt::CaseInsensitive)) {
+          loadedArchives.insert(archiveName);
+        }
       }
 
-      bool forceLoaded = Settings::instance().game().forceEnableCoreFiles() &&
-                         primaryPlugins.contains(filename, Qt::CaseInsensitive);
-      bool forceEnabled = enabledPlugins.contains(filename, Qt::CaseInsensitive);
-      bool forceDisabled =
-          m_GamePlugin->loadOrderMechanism() == IPluginGame::LoadOrderMechanism::None &&
-          !forceLoaded && !forceEnabled;
-
-      bool archive = false;
-      try {
-        FilesOrigin& origin = baseDirectory.getOriginByID(current->getOrigin(archive));
-
-        // name without extension
-        QString baseName = QFileInfo(filename).completeBaseName();
-
-        QString iniPath = baseName + ".ini";
-        bool hasIni     = baseDirectory.findFile(ToWString(iniPath)).get() != nullptr;
-        std::set<QString> loadedArchives;
-        QString candidateName;
-        for (FileEntryPtr archiveCandidate : files) {
-          candidateName = ToQString(archiveCandidate->getName());
-          if (candidateName.startsWith(baseName, Qt::CaseInsensitive) &&
-              (candidateName.endsWith(".bsa", Qt::CaseInsensitive) ||
-               candidateName.endsWith(".ba2", Qt::CaseInsensitive))) {
-            loadedArchives.insert(candidateName);
-          }
-        }
-
-        QString originName    = ToQString(origin.getName());
-        unsigned int modIndex = ModInfo::getIndex(originName);
-        if (modIndex != UINT_MAX) {
-          ModInfo::Ptr modInfo = ModInfo::getByIndex(modIndex);
-          originName           = modInfo->name();
-        }
-
-        m_ESPs.push_back(ESPInfo(filename, forceLoaded, forceEnabled, forceDisabled,
-                                 originName, ToQString(current->getFullPath()), hasIni,
-                                 loadedArchives, lightPluginsAreSupported,
-                                 overridePluginsAreSupported));
-        m_ESPs.rbegin()->priority = -1;
-      } catch (const std::exception& e) {
-        reportError(
-            tr("failed to update esp info for file %1 (source id: %2), error: %3")
-                .arg(filename)
-                .arg(current->getOrigin(archive))
-                .arg(e.what()));
+      QString originName    = ToQString(origin.getName());
+      unsigned int modIndex = ModInfo::getIndex(originName);
+      if (modIndex != UINT_MAX) {
+        ModInfo::Ptr modInfo = ModInfo::getByIndex(modIndex);
+        originName           = modInfo->name();
       }
+
+      m_ESPs.emplace_back(filename, forceLoaded, forceEnabled, forceDisabled,
+                          originName, ToQString(current->getFullPath()), hasIni,
+                          loadedArchives, lightPluginsAreSupported,
+                          mediumPluginsAreSupported);
+      m_ESPs.rbegin()->priority = -1;
+    } catch (const std::exception& e) {
+      reportError(tr("failed to update esp info for file %1 (source id: %2), error: %3")
+                      .arg(filename)
+                      .arg(current->getOrigin(archive))
+                      .arg(e.what()));
     }
   }
 
   for (const auto& espName : m_ESPsByName) {
-    if (!availablePlugins.contains(espName.first, Qt::CaseInsensitive)) {
+    if (!availablePlugins.contains(espName.first)) {
       m_ESPs[espName.second].name = "";
     }
   }
@@ -670,7 +673,7 @@ void PluginList::writeLockedOrder(const QString& fileName) const
 
 void PluginList::saveTo(const QString& lockedOrderFileName) const
 {
-  GamePlugins* gamePlugins = m_GamePlugin->feature<GamePlugins>();
+  auto gamePlugins = m_Organizer.gameFeatures().gameFeature<GamePlugins>();
   if (gamePlugins) {
     gamePlugins->writePluginLists(m_Organizer.managedGameOrganizer()->pluginList());
   }
@@ -996,6 +999,16 @@ bool PluginList::isMasterFlagged(const QString& name) const
   }
 }
 
+bool PluginList::isMediumFlagged(const QString& name) const
+{
+  auto iter = m_ESPsByName.find(name);
+  if (iter == m_ESPsByName.end()) {
+    return false;
+  } else {
+    return m_ESPs[iter->second].isMediumFlagged;
+  }
+}
+
 bool PluginList::isLightFlagged(const QString& name) const
 {
   auto iter = m_ESPsByName.find(name);
@@ -1003,16 +1016,6 @@ bool PluginList::isLightFlagged(const QString& name) const
     return false;
   } else {
     return m_ESPs[iter->second].isLightFlagged;
-  }
-}
-
-bool PluginList::isOverlayFlagged(const QString& name) const
-{
-  auto iter = m_ESPsByName.find(name);
-  if (iter == m_ESPsByName.end()) {
-    return false;
-  } else {
-    return m_ESPs[iter->second].isOverlayFlagged;
   }
 }
 
@@ -1080,13 +1083,14 @@ void PluginList::updateIndices()
 void PluginList::generatePluginIndexes()
 {
   int numESLs    = 0;
+  int numESHs    = 0;
   int numSkipped = 0;
 
-  GamePlugins* gamePlugins = m_GamePlugin->feature<GamePlugins>();
+  auto gamePlugins = m_Organizer.gameFeatures().gameFeature<GamePlugins>();
   const bool lightPluginsSupported =
       gamePlugins ? gamePlugins->lightPluginsAreSupported() : false;
-  const bool overridePluginsSupported =
-      gamePlugins ? gamePlugins->overridePluginsAreSupported() : false;
+  const bool mediumPluginsSupported =
+      gamePlugins ? gamePlugins->mediumPluginsAreSupported() : false;
 
   for (int l = 0; l < m_ESPs.size(); ++l) {
     int i = m_ESPsByPriority.at(l);
@@ -1095,23 +1099,26 @@ void PluginList::generatePluginIndexes()
       ++numSkipped;
       continue;
     }
-    if (lightPluginsSupported &&
-        (m_ESPs[i].hasLightExtension || m_ESPs[i].isLightFlagged)) {
-      int ESLpos      = 254 + ((numESLs + 1) / 4096);
+    if (mediumPluginsSupported && m_ESPs[i].isMediumFlagged) {
+      int ESHpos      = 253 + (numESHs / 256);
+      m_ESPs[i].index = QString("%1:%2")
+                            .arg(ESHpos, 2, 16, QChar('0'))
+                            .arg(numESHs % 256, 2, 16, QChar('0'))
+                            .toUpper();
+      ++numESHs;
+    } else if (lightPluginsSupported &&
+               (m_ESPs[i].hasLightExtension || m_ESPs[i].isLightFlagged)) {
+      int ESLpos      = 254 + (numESLs / 4096);
       m_ESPs[i].index = QString("%1:%2")
                             .arg(ESLpos, 2, 16, QChar('0'))
-                            .arg((numESLs) % 4096, 3, 16, QChar('0'))
+                            .arg(numESLs % 4096, 3, 16, QChar('0'))
                             .toUpper();
       ++numESLs;
-      // This logic may still be used if overlay plugins are fixed to longer consume a
-      // load order slot
-      //
-      //} else if (overridePluginsSupported && m_ESPs[i].isOverlayFlagged) {
-      //  m_ESPs[i].index = QString("XX");
-      //  ++numSkipped;
     } else {
-      m_ESPs[i].index =
-          QString("%1").arg(l - numESLs - numSkipped, 2, 16, QChar('0')).toUpper();
+      m_ESPs[i].index = QString("%1")
+                            .arg(l - numESHs - numESLs - numSkipped, 2, 16,
+                                 QChar('0'))
+                            .toUpper();
     }
   }
   emit esplist_changed();
@@ -1245,8 +1252,8 @@ QVariant PluginList::fontData(const QModelIndex& modelIndex) const
     result.setWeight(QFont::Bold);
   if (m_ESPs[index].isLightFlagged || m_ESPs[index].hasLightExtension)
     result.setItalic(true);
-  if (m_ESPs[index].hasNoRecords)
-    result.setStrikeOut(true);
+  else if (m_ESPs[index].isMediumFlagged)
+    result.setUnderline(true);
 
   return result;
 }
@@ -1335,21 +1342,25 @@ QVariant PluginList::tooltipData(const QModelIndex& modelIndex) const
   if (esp.isLightFlagged && !esp.hasLightExtension) {
     QString type = esp.hasMasterExtension ? "ESM" : "ESP";
     toolTip +=
-        "<br><br>" + tr("This %1 is flagged as an ESL. It will adhere to the %1 load "
-                        "order but the records will be loaded in ESL space.")
-                         .arg(type);
+        "<br><br>" +
+        tr("This %1 is flagged as a light plugin (ESL). It will adhere to the %1 load "
+           "order but the records will be loaded in ESL space (FE/FF). You can have up "
+           "to 4096 light plugins in addition to other plugin types.")
+            .arg(type);
+  } else if (esp.isMediumFlagged && esp.hasMasterExtension) {
+    toolTip += "<br><br>" +
+               tr("This ESM is flagged as a medium plugin (ESH). It adheres to the ESM "
+                  "load order but loads records in ESH space (FD). You can have 256 "
+                  "medium plugins in addition to other plugin types.");
   }
 
-  // This logic may still be used if overlay plugins are fixed to longer consume a load
-  // order slot
-  //
-  // if (esp.isOverlayFlagged) {
-  //   toolTip +=
-  //       "<br><br>" + tr("This plugin is flagged as an overlay plugin. It contains
-  //       only "
-  //                       "modified records and will overlay those changes onto the "
-  //                       "existing records in memory. It takes no memory space.");
-  // }
+  if (esp.isLightFlagged && esp.isMediumFlagged) {
+    toolTip +=
+        "<br><br>" +
+        tr("WARNING: This plugin is both light and medium flagged. "
+           "This could indicate that the file was saved improperly "
+           "and may have mismatched record references. Use it at your own risk.");
+  }
 
   if (esp.hasNoRecords) {
     toolTip += "<br><br>" + tr("This is a dummy plugin. It contains no records and is "
@@ -1357,8 +1368,13 @@ QVariant PluginList::tooltipData(const QModelIndex& modelIndex) const
   }
 
   if (esp.forceDisabled) {
-    toolTip += "<br><br>" + tr("This game does not currently permit custom plugin "
-                               "loading. There may be manual workarounds.");
+    auto feature = m_Organizer.gameFeatures().gameFeature<GamePlugins>();
+    if (feature && esp.hasLightExtension && feature->lightPluginsAreSupported()) {
+      toolTip += "<br><br>" + tr("Light plugins (ESL) are not supported by this game.");
+    } else {
+      toolTip += "<br><br>" + tr("This game does not currently permit custom plugin "
+                                 "loading. There may be manual workarounds.");
+    }
   }
 
   // additional info
@@ -1476,8 +1492,15 @@ QVariant PluginList::iconData(const QModelIndex& modelIndex) const
     result.append(":/MO/gui/awaiting");
   }
 
-  if (esp.isOverlayFlagged) {
-    result.append(":/MO/gui/instance_switch");
+  if (esp.isMediumFlagged) {
+    result.append(":/MO/gui/run");
+    if (esp.isLightFlagged) {
+      result.append(":/MO/gui/warning");
+    }
+  }
+
+  if (esp.hasNoRecords) {
+    result.append(":/MO/gui/unchecked-checkbox");
   }
 
   if (info && !info->loot.dirty.empty()) {
@@ -1792,7 +1815,7 @@ PluginList::ESPInfo::ESPInfo(const QString& name, bool forceLoaded, bool forceEn
                              bool forceDisabled, const QString& originName,
                              const QString& fullPath, bool hasIni,
                              std::set<QString> archives, bool lightSupported,
-                             bool overlaySupported)
+                             bool mediumSupported)
     : name(name), fullPath(fullPath), enabled(forceLoaded), forceLoaded(forceLoaded),
       forceEnabled(forceEnabled), forceDisabled(forceDisabled), priority(0),
       loadOrder(-1), originName(originName), hasIni(hasIni),
@@ -1802,12 +1825,11 @@ PluginList::ESPInfo::ESPInfo(const QString& name, bool forceLoaded, bool forceEn
     ESP::File file(ToWString(fullPath));
     auto extension     = name.right(3).toLower();
     hasMasterExtension = (extension == "esm");
-    hasLightExtension  = lightSupported && (extension == "esl");
+    hasLightExtension  = (extension == "esl");
     isMasterFlagged    = file.isMaster();
-    isOverlayFlagged   = overlaySupported && file.isOverlay();
-    isLightFlagged =
-        lightSupported && !isOverlayFlagged && file.isLight(overlaySupported);
-    hasNoRecords = file.isDummy();
+    isLightFlagged     = lightSupported && file.isLight(mediumSupported);
+    isMediumFlagged    = mediumSupported && file.isMedium();
+    hasNoRecords       = file.isDummy();
 
     author      = QString::fromLatin1(file.author().c_str());
     description = QString::fromLatin1(file.description().c_str());
@@ -1820,7 +1842,7 @@ PluginList::ESPInfo::ESPInfo(const QString& name, bool forceLoaded, bool forceEn
     hasMasterExtension = false;
     hasLightExtension  = false;
     isMasterFlagged    = false;
-    isOverlayFlagged   = false;
+    isMediumFlagged    = false;
     isLightFlagged     = false;
     hasNoRecords       = false;
   }

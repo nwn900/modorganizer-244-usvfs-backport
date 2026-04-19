@@ -8,9 +8,8 @@
 using namespace MOBase;
 
 SavesTab::SavesTab(QWidget* window, OrganizerCore& core, Ui::MainWindow* mwui)
-    : m_window(window), m_core(core),
-      m_CurrentSaveView(nullptr), ui{mwui->tabWidget, mwui->savesTab,
-                                     mwui->savegameList}
+    : m_window(window), m_core(core), m_CurrentSaveView(nullptr),
+      ui{mwui->tabWidget, mwui->savesTab, mwui->savegameList}
 {
   m_SavesWatcherTimer.setSingleShot(true);
   m_SavesWatcherTimer.setInterval(500);
@@ -63,8 +62,7 @@ void SavesTab::displaySaveGameInfo(QTreeWidgetItem* newItem)
   }
 
   if (m_CurrentSaveView == nullptr) {
-    const IPluginGame* game  = m_core.managedGame();
-    const SaveGameInfo* info = game->feature<SaveGameInfo>();
+    auto info = m_core.gameFeatures().gameFeature<SaveGameInfo>();
 
     if (info != nullptr) {
       m_CurrentSaveView = info->getSaveGameWidget(m_window);
@@ -200,7 +198,7 @@ void SavesTab::refreshSaveList()
 
 void SavesTab::deleteSavegame()
 {
-  SaveGameInfo const* info = m_core.managedGame()->feature<SaveGameInfo>();
+  auto info = m_core.gameFeatures().gameFeature<SaveGameInfo>();
 
   QString savesMsgLabel;
   QStringList deleteFiles;
@@ -247,7 +245,7 @@ void SavesTab::onContextMenu(const QPoint& pos)
 
   QMenu menu;
 
-  SaveGameInfo const* info = this->m_core.managedGame()->feature<SaveGameInfo>();
+  auto info = m_core.gameFeatures().gameFeature<SaveGameInfo>();
   if (info != nullptr) {
     QAction* action = menu.addAction(tr("Fix enabled mods..."));
     action->setEnabled(false);
@@ -276,7 +274,7 @@ void SavesTab::onContextMenu(const QPoint& pos)
   menu.exec(ui.list->viewport()->mapToGlobal(pos));
 }
 
-void SavesTab::fixMods(SaveGameInfo::MissingAssets const& missingAssets)
+void SavesTab::fixMods(MOBase::SaveGameInfo::MissingAssets const& missingAssets)
 {
   ActivateModsDialog dialog(missingAssets, m_window);
   if (dialog.exec() == QDialog::Accepted) {
@@ -305,7 +303,7 @@ void SavesTab::fixMods(SaveGameInfo::MissingAssets const& missingAssets)
 
 void SavesTab::openInExplorer()
 {
-  const SaveGameInfo* info = m_core.managedGame()->feature<SaveGameInfo>();
+  auto info = m_core.gameFeatures().gameFeature<SaveGameInfo>();
 
   const auto sel = ui.list->selectionModel()->selectedRows();
   if (sel.empty()) {
