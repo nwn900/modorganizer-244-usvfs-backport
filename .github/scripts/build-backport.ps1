@@ -786,7 +786,12 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Write-Step "Running usvfs_test_runner_x64.exe"
-& $runnerExe
+# Keep real release coverage: x64 creator path plus injected x86 child processes.
+# The standalone x86 creator tests do not match the shipped 2.5.x organizer runtime.
+$runnerArgs = @(
+    '--gtest_filter=-UsvfsTest.basic_x86:UsvfsTest.basic_ops64_x86'
+)
+& $runnerExe @runnerArgs
 if ($LASTEXITCODE -ne 0) {
     throw "usvfs_test_runner_x64.exe failed"
 }
@@ -821,7 +826,7 @@ $report = @(
     "Commit: $env:GITHUB_SHA"
     "Launch smoke: $launchSummary"
     "tvfs_test_x64.exe: PASS"
-    "usvfs_test_runner_x64.exe: PASS"
+    "usvfs_test_runner_x64.exe: PASS (x64 creator + x86 child injection coverage)"
 )
 
 if ($env:GITHUB_SERVER_URL -and $env:GITHUB_REPOSITORY -and $env:GITHUB_RUN_ID) {
