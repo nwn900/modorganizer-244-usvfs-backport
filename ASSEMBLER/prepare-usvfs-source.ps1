@@ -30,6 +30,14 @@ function Write-Utf8NoBom([string]$Path, [string]$Content) {
     [System.IO.File]::WriteAllText($Path, $Content, $encoding)
 }
 
+function Replace-RequiredText([string]$Text, [string]$Needle, [string]$Replacement, [string]$Description) {
+    if (-not $Text.Contains($Needle)) {
+        throw "Failed to patch $Description"
+    }
+
+    return $Text.Replace($Needle, $Replacement)
+}
+
 function Wrap-PreprocessorBlock([string]$Text, [string]$Block, [string]$Macro, [string]$NewLine) {
     $guarded = "#ifndef $Macro$NewLine$Block$NewLine#endif  // $Macro"
     if ($Text.Contains($guarded)) {
@@ -86,8 +94,9 @@ function Get-BoostLinkLibraries([string]$LibDir) {
     }
 
     return @(
-        Get-ChildItem -LiteralPath $LibDir -Filter 'boost_*.lib' -ErrorAction SilentlyContinue |
-            Sort-Object Name |
+        Get-ChildItem -LiteralPath $LibDir -File -ErrorAction SilentlyContinue |
+            Where-Object { $_.Name -like 'boost_*.lib' -or $_.Name -like 'libboost_*.lib' } |
+            Sort-Object Name -Unique |
             Select-Object -ExpandProperty Name
     )
 }
@@ -896,6 +905,76 @@ if ($MO2Version -ne '2.4.4') {
     Copy-CompatTreeIfMissing (Join-Path $sourceDir 'test\tinjectlib_test\testinject_dll') (Join-Path $sourceDir 'test\testinject_dll')
     Copy-CompatTreeIfMissing (Join-Path $sourceDir 'test\usvfs_test_runner\test_file_operations') (Join-Path $sourceDir 'test\test_file_operations')
     Copy-CompatTreeIfMissing (Join-Path $sourceDir 'test\usvfs_test_runner\usvfs_test') (Join-Path $sourceDir 'test\usvfs_test')
+}
+
+$usvfsTestBasePath = Join-Path $sourceDir 'test\usvfs_test\usvfs_test_base.cpp'
+if (Test-Path $usvfsTestBasePath) {
+    $usvfsTestBaseText = Get-Content -LiteralPath $usvfsTestBasePath -Raw
+    $testNl = if ($usvfsTestBaseText.Contains("`r`n")) { "`r`n" } else { "`n" }
+
+    if ($usvfsTestBaseText -notmatch '(?m)^#include <cstdlib>$') {
+        $usvfsTestBaseText = Replace-RequiredText `
+            -Text $usvfsTestBaseText `
+            -Needle ("#include <cerrno>" + $testNl) `
+            -Replacement ("#include <cerrno>" + $testNl + "#include <cstdlib>" + $testNl) `
+            -Description $usvfsTestBasePath
+    }
+
+    $usvfsTestBaseNeedle = @"
+    std::unique_ptr<usvfsParameters, decltype(&usvfsFreeParameters)> parameters{
+        usvfsCreateParameters(), &usvfsFreeParameters };
+
+    usvfsSetInstanceName(parameters.get(), "usvfs_test");
+    usvfsSetDebugMode(parameters.get(), false);
+    usvfsSetLogLevel(parameters.get(), LogLevel::Debug);
+    usvfsSetCrashDumpType(parameters.get(), CrashDumpsType::None);
+    usvfsSetCrashDumpPath(parameters.get(), "");
+
+    usvfsInitLogging(false);
+    usvfsCreateVFS(parameters.get());
+
+    m_log_thread = std::thread(&usvfs_connector::usvfs_logger, this);
+"@ -replace "`n", $testNl
+
+    $usvfsTestBaseReplacement = @"
+    std::unique_ptr<usvfsParameters, decltype(&usvfsFreeParameters)> parameters{
+        usvfsCreateParameters(), &usvfsFreeParameters };
+    if (!parameters) {
+      throw_testWinFuncFailed("usvfsCreateParameters", "", ERROR_OUTOFMEMORY);
+    }
+    std::cout << "trace: usvfsCreateParameters ok" << std::endl;
+
+    usvfsSetInstanceName(parameters.get(), "usvfs_test");
+    std::cout << "trace: usvfsSetInstanceName ok" << std::endl;
+    usvfsSetDebugMode(parameters.get(), false);
+    std::cout << "trace: usvfsSetDebugMode ok" << std::endl;
+    usvfsSetLogLevel(parameters.get(), LogLevel::Debug);
+    std::cout << "trace: usvfsSetLogLevel ok" << std::endl;
+    usvfsSetCrashDumpType(parameters.get(), CrashDumpsType::None);
+    std::cout << "trace: usvfsSetCrashDumpType ok" << std::endl;
+
+    const char* crashDumpPath = std::getenv("USVFS_TEST_CRASH_DUMP_PATH");
+    if (crashDumpPath && *crashDumpPath) {
+      usvfsSetCrashDumpPath(parameters.get(), crashDumpPath);
+      std::cout << "trace: usvfsSetCrashDumpPath ok" << std::endl;
+    } else {
+      std::cout << "trace: usvfsSetCrashDumpPath skipped" << std::endl;
+    }
+
+    usvfsInitLogging(false);
+    std::cout << "trace: usvfsInitLogging ok" << std::endl;
+    usvfsCreateVFS(parameters.get());
+    std::cout << "trace: usvfsCreateVFS ok" << std::endl;
+
+    m_log_thread = std::thread(&usvfs_connector::usvfs_logger, this);
+"@ -replace "`n", $testNl
+
+    $usvfsTestBaseText = Replace-RequiredText `
+        -Text $usvfsTestBaseText `
+        -Needle $usvfsTestBaseNeedle `
+        -Replacement $usvfsTestBaseReplacement `
+        -Description $usvfsTestBasePath
+    Write-Utf8NoBom $usvfsTestBasePath $usvfsTestBaseText
 }
 
 $vcxPath = Join-Path $sourceDir "vsbuild\usvfs_dll.vcxproj"

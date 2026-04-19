@@ -107,6 +107,30 @@ function Find-ModOrganizerExe([string]$InstallRoot) {
     throw "ModOrganizer.exe not found under $InstallRoot"
 }
 
+function Find-BoostRoot([string]$BuildRoot) {
+    $candidates = @(
+        Get-ChildItem -LiteralPath $BuildRoot -Directory -Filter "boost_*" -ErrorAction SilentlyContinue |
+            Sort-Object Name -Descending
+    )
+    if ($candidates.Count -eq 0) {
+        return $null
+    }
+
+    $best = $candidates |
+        ForEach-Object {
+            $has32 = @(Get-ChildItem -LiteralPath $_.FullName -Directory -Filter "lib32-msvc-*" -ErrorAction SilentlyContinue).Count -gt 0
+            $has64 = @(Get-ChildItem -LiteralPath $_.FullName -Directory -Filter "lib64-msvc-*" -ErrorAction SilentlyContinue).Count -gt 0
+            [PSCustomObject]@{
+                Root  = $_
+                Score = [int]$has32 + [int]$has64
+            }
+        } |
+        Sort-Object @{ Expression = "Score"; Descending = $true }, @{ Expression = { $_.Root.Name }; Descending = $true } |
+        Select-Object -First 1
+
+    return $best.Root
+}
+
 function New-ChecksumsFile([string]$Root, [string]$ZipPath, [string]$OutFile) {
     $lines = New-Object System.Collections.Generic.List[string]
 
@@ -577,12 +601,12 @@ $prepareUsvfsArgs = @{
     Commit = $UsvfsRef
 }
 if ($TargetVersion -eq "2.5.0") {
-    $boostRoot = Get-ChildItem -LiteralPath (Join-Path $prefix "build") -Directory -Filter "boost_*" |
-        Select-Object -First 1
+    $boostRoot = Find-BoostRoot -BuildRoot (Join-Path $prefix "build")
     if (-not $boostRoot) {
         throw "Boost root not found under $prefix\build"
     }
 
+    Write-Step "Using Boost root $($boostRoot.FullName) for usvfs preparation"
     $prepareUsvfsArgs.BoostPath = $boostRoot.FullName
 }
 
@@ -664,9 +688,10 @@ try {
 }
 
 $buildRoot = Join-Path $prefix "build"
-$boostRoot = Get-ChildItem -LiteralPath $buildRoot -Directory -Filter "boost_*" | Select-Object -First 1
+$boostRoot = Find-BoostRoot -BuildRoot $buildRoot
 if ($boostRoot) {
     $env:BOOST_PATH = $boostRoot.FullName
+    Write-Step "Using Boost root $($boostRoot.FullName) for usvfs test builds"
 }
 $gtestRoot = Join-Path $buildRoot "googletest"
 if (Test-Path -LiteralPath $gtestRoot) {
