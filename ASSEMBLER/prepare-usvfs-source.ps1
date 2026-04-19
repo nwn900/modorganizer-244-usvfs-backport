@@ -88,7 +88,7 @@ function Get-BoostCompatLibRootName([string]$Platform, [string]$MO2Version) {
     return "lib$($libSuffix)-msvc-$msvcVersion"
 }
 
-function Get-BoostLinkLibraries([string]$LibDir, [switch]$PreferStaticRuntime) {
+function Get-BoostLinkLibraries([string]$LibDir) {
     if (!(Test-Path $LibDir)) {
         return @()
     }
@@ -114,9 +114,9 @@ function Get-BoostLinkLibraries([string]$LibDir, [switch]$PreferStaticRuntime) {
         $priority = 4
         if ($name -like 'libboost_*.lib' -and $name -notmatch '-(?:s)?gd-') {
             if ($name -match '-s-') {
-                $priority = if ($PreferStaticRuntime) { 0 } else { 1 }
+                $priority = 1
             } else {
-                $priority = if ($PreferStaticRuntime) { 1 } else { 0 }
+                $priority = 0
             }
         } elseif ($name -like 'boost_*.lib' -and $name -notmatch '-(?:s)?gd-') {
             $priority = 2
@@ -1116,7 +1116,7 @@ if (!$BoostPath -and $UseVcpkgBoost) {
             $primaryLibDir = $vcpkgLib
         }
 
-        $boostLinkLibrariesByPlatform[$platform] = Get-BoostLinkLibraries $vcpkgLib -PreferStaticRuntime:($MO2Version -eq '2.5.0')
+        $boostLinkLibrariesByPlatform[$platform] = Get-BoostLinkLibraries $vcpkgLib
 
         $compatLibRootName = Get-BoostCompatLibRootName $platform $MO2Version
         $compatLibRoot = Join-Path $compatRoot $compatLibRootName
@@ -1150,7 +1150,7 @@ if ($BoostPath) {
             ) | Where-Object { Test-Path $_ } | Select-Object -Unique
 
             foreach ($libDir in $candidateLibDirs) {
-                $boostLinkLibrariesByPlatform[$platform] = Get-BoostLinkLibraries $libDir -PreferStaticRuntime:($MO2Version -eq '2.5.0')
+                $boostLinkLibrariesByPlatform[$platform] = Get-BoostLinkLibraries $libDir
                 if ($boostLinkLibrariesByPlatform[$platform].Count -gt 0) {
                     break
                 }
