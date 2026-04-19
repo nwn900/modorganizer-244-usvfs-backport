@@ -339,8 +339,7 @@ public:
 
   void updateVFSParams(MOBase::log::Levels logLevel, env::CoreDumpTypes coreDumpType,
                        const QString& coreDumpsPath, std::chrono::seconds spawnDelay,
-                       QString executableBlacklist, const QStringList& skipFileSuffixes,
-                       const QStringList& skipDirectories);
+                       QString executableBlacklist);
 
   void setLogLevel(MOBase::log::Levels level);
 
