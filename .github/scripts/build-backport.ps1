@@ -574,6 +574,7 @@ if (-not (Test-Path -LiteralPath $usvfsRoot)) {
 $prepareUsvfsArgs = @{
     MO2Version = $TargetVersion
     SourceDir = $usvfsRoot
+    Commit = $UsvfsRef
 }
 if ($TargetVersion -eq "2.5.0") {
     $boostRoot = Get-ChildItem -LiteralPath (Join-Path $prefix "build") -Directory -Filter "boost_*" |
