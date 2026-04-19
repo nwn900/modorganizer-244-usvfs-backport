@@ -16,7 +16,7 @@ env:
   USER_BRANCH: codex/backport-250-download-install-fixes
   USER_ORG: nwn900
   USVFS_REF: v0.5.0
-  QT_VERSION: 6.5.0
+  QT_VERSION: 6.7.1
   QT_ARCH: win64_msvc2019_64
 
 jobs:
