@@ -571,11 +571,15 @@ if (-not (Test-Path -LiteralPath $usvfsRoot)) {
     throw "usvfs source not found at $usvfsRoot"
 }
 
+$prepareUsvfsArgs = @{
+    MO2Version = $TargetVersion
+    SourceDir = $usvfsRoot
+    Commit = $UsvfsRef
+}
+
 Write-Step "Patching usvfs source for $TargetVersion"
 Invoke-Checked -FailureMessage "prepare-usvfs-source.ps1 failed" -Script {
-    & (Join-Path $workspace "ASSEMBLER\prepare-usvfs-source.ps1") `
-        -MO2Version $TargetVersion `
-        -SourceDir $usvfsRoot
+    & (Join-Path $workspace "ASSEMBLER\prepare-usvfs-source.ps1") @prepareUsvfsArgs
 }
 
 Write-Step "Building all enabled tasks with mob"

@@ -14,7 +14,7 @@ if ([string]::IsNullOrWhiteSpace($SourceDir)) {
     $SourceDir = (Join-Path $PSScriptRoot "..\external\usvfs-mo2-v$MO2Version")
 }
 if ([string]::IsNullOrWhiteSpace($Commit)) {
-    if ($MO2Version -eq '2.5.2') { $Commit = 'v0.5.6.2' }
+    if ($MO2Version -eq '2.5.2') { $Commit = 'v0.5.0' }
     elseif ($MO2Version -eq '2.5.0') { $Commit = 'v0.5.0' }
     else { $Commit = '7368b25' }
 }
@@ -851,21 +851,23 @@ Invoke-GitProcess @('-C', $sourceDir, 'fetch', '--all', '--tags') | Out-Null
 Invoke-GitProcess @('-C', $sourceDir, 'checkout', '--force', $Commit) | Out-Null
 Invoke-GitProcess @('-C', $sourceDir, 'submodule', 'update', '--init', '--recursive') | Out-Null
 
-if ($MO2Version -eq '2.5.2') {
-    Write-Info "Copying legacy submodules for v2.5.2 vsbuild compatibility..."
+$compatTreeNames = @('asmjit', 'spdlog', 'udis86')
+$missingCompatTrees = @($compatTreeNames | Where-Object {
+    -not (Test-Path (Join-Path $sourceDir $_))
+})
+if ($missingCompatTrees.Count -gt 0) {
+    Write-Info "Backfilling legacy vsbuild compatibility trees: $($missingCompatTrees -join ', ')"
     $v250Path = Join-Path $repoRoot 'external\usvfs-mo2-v2.5.0'
     Ensure-LegacyUsvfsCompatTree -LegacyRoot $v250Path -RepoUrl $RepoUrl
-    if (Test-Path "$v250Path\asmjit") {
-        if (Test-Path "$sourceDir\asmjit") { Remove-Item "$sourceDir\asmjit" -Recurse -Force }
-        Copy-Item "$v250Path\asmjit" -Destination "$sourceDir\asmjit" -Recurse -Force
-    }
-    if (Test-Path "$v250Path\spdlog") {
-        if (Test-Path "$sourceDir\spdlog") { Remove-Item "$sourceDir\spdlog" -Recurse -Force }
-        Copy-Item "$v250Path\spdlog" -Destination "$sourceDir\spdlog" -Recurse -Force
-    }
-    if (Test-Path "$v250Path\udis86") {
-        if (Test-Path "$sourceDir\udis86") { Remove-Item "$sourceDir\udis86" -Recurse -Force }
-        Copy-Item "$v250Path\udis86" -Destination "$sourceDir\udis86" -Recurse -Force
+
+    foreach ($treeName in $missingCompatTrees) {
+        $legacyTree = Join-Path $v250Path $treeName
+        $targetTree = Join-Path $sourceDir $treeName
+        if (!(Test-Path $legacyTree)) {
+            throw "Legacy compatibility tree missing at $legacyTree"
+        }
+
+        Copy-Item $legacyTree -Destination $targetTree -Recurse -Force
     }
 }
 
@@ -1009,7 +1011,7 @@ if ($BoostPath) {
     $escapedBoostPath = $BoostPath.Replace('&', '&amp;')
     $boostLinkXml = ''
 
-    foreach ($platform in $boostLinkLibrariesByPlatform.Keys) {
+    foreach ($platform in @($boostLinkLibrariesByPlatform.Keys)) {
         if ($boostLinkLibrariesByPlatform[$platform].Count -eq 0) {
             $compatLibRootName = Get-BoostCompatLibRootName $platform $MO2Version
             $candidateLibDirs = @(
