@@ -40,6 +40,18 @@ along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 #include <report.h>
 #include <usvfs.h>
 
+extern "C" BOOL WINAPI CreateProcessHooked(
+    LPCWSTR applicationName,
+    LPWSTR commandLine,
+    LPSECURITY_ATTRIBUTES processAttributes,
+    LPSECURITY_ATTRIBUTES threadAttributes,
+    BOOL inheritHandles,
+    DWORD creationFlags,
+    LPVOID environment,
+    LPCWSTR currentDirectory,
+    LPSTARTUPINFOW startupInfo,
+    LPPROCESS_INFORMATION processInformation);
+
 using namespace MOBase;
 using namespace MOShared;
 

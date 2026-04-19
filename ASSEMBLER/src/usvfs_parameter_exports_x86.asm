@@ -446,6 +446,8 @@ _usvfsSetCrashDumpType ENDP
 ; ---------------------------------------------------------------
 ; usvfsSetCrashDumpPath (__cdecl)
 ; ---------------------------------------------------------------
+; EXTERNAL C++ Bridge for virtual functions
+EXTERN ?setCrashDumpPath@usvfsParameters@@QAEXPBD@Z:PROC
 PUBLIC _usvfsSetCrashDumpPath
 _usvfsSetCrashDumpPath PROC
     mov ecx, [esp+4]
@@ -456,45 +458,6 @@ _usvfsSetCrashDumpPath PROC
 set_path_done:
     ret
 _usvfsSetCrashDumpPath ENDP
-
-; ---------------------------------------------------------------
-; setCrashDumpPath member function (thiscall)
-; ecx = this, [esp+4] = path
-; ---------------------------------------------------------------
-PUBLIC ?setCrashDumpPath@usvfsParameters@@QAEXPBD@Z
-?setCrashDumpPath@usvfsParameters@@QAEXPBD@Z PROC
-    push edi
-    mov edi, ecx
-
-    test edi, edi
-    jz short set_path_member_done
-
-    mov eax, [esp+8]
-    test eax, eax
-    jz short set_path_member_fail
-    cmp byte ptr [eax], 0
-    je short set_path_member_fail
-
-    mov ecx, eax
-    mov edx, USVFS_CRASH_DUMPS_PATH_SIZE
-    call _usvfsAsmStrnlenMax
-    cmp eax, USVFS_CRASH_DUMPS_PATH_SIZE
-    jae short set_path_member_fail
-
-    lea ecx, [edi + USVFS_CRASH_DUMPS_PATH_OFFSET]
-    mov edx, USVFS_CRASH_DUMPS_PATH_SIZE
-    mov eax, [esp+8]
-    call _usvfsAsmCopyTruncate
-    jmp short set_path_member_done
-
-set_path_member_fail:
-    mov byte ptr [edi + USVFS_CRASH_DUMPS_PATH_OFFSET], 0
-    mov byte ptr [edi + USVFS_CRASH_DUMPS_TYPE_OFFSET], 0
-
-set_path_member_done:
-    pop edi
-    ret 4
-?setCrashDumpPath@usvfsParameters@@QAEXPBD@Z ENDP
 
 ; ---------------------------------------------------------------
 ; usvfsSetProcessDelay (__cdecl)
