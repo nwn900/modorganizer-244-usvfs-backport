@@ -88,7 +88,7 @@ function Get-BoostCompatLibRootName([string]$Platform, [string]$MO2Version) {
     return "lib$($libSuffix)-msvc-$msvcVersion"
 }
 
-function Get-BoostLinkLibraries([string]$LibDir) {
+function Get-BoostLinkLibraries([string]$LibDir, [switch]$PreferStaticRuntime) {
     if (!(Test-Path $LibDir)) {
         return @()
     }
@@ -114,9 +114,9 @@ function Get-BoostLinkLibraries([string]$LibDir) {
         $priority = 4
         if ($name -like 'libboost_*.lib' -and $name -notmatch '-(?:s)?gd-') {
             if ($name -match '-s-') {
-                $priority = 1
+                $priority = if ($PreferStaticRuntime) { 0 } else { 1 }
             } else {
-                $priority = 0
+                $priority = if ($PreferStaticRuntime) { 1 } else { 0 }
             }
         } elseif ($name -like 'boost_*.lib' -and $name -notmatch '-(?:s)?gd-') {
             $priority = 2
@@ -1116,7 +1116,7 @@ if (!$BoostPath -and $UseVcpkgBoost) {
             $primaryLibDir = $vcpkgLib
         }
 
-        $boostLinkLibrariesByPlatform[$platform] = Get-BoostLinkLibraries $vcpkgLib
+        $boostLinkLibrariesByPlatform[$platform] = Get-BoostLinkLibraries $vcpkgLib -PreferStaticRuntime:($MO2Version -eq '2.5.0')
 
         $compatLibRootName = Get-BoostCompatLibRootName $platform $MO2Version
         $compatLibRoot = Join-Path $compatRoot $compatLibRootName
@@ -1150,7 +1150,7 @@ if ($BoostPath) {
             ) | Where-Object { Test-Path $_ } | Select-Object -Unique
 
             foreach ($libDir in $candidateLibDirs) {
-                $boostLinkLibrariesByPlatform[$platform] = Get-BoostLinkLibraries $libDir
+                $boostLinkLibrariesByPlatform[$platform] = Get-BoostLinkLibraries $libDir -PreferStaticRuntime:($MO2Version -eq '2.5.0')
                 if ($boostLinkLibrariesByPlatform[$platform].Count -gt 0) {
                     break
                 }
@@ -1218,6 +1218,15 @@ Get-ChildItem -Path $sourceDir -Include '*.vcxproj', '*.props' -Recurse | ForEac
         if ($vcxText -match '\\udis86;(%\(AdditionalIncludeDirectories\)|<)') {
             $vcxText = [regex]::Replace($vcxText, '\\udis86;(%\(AdditionalIncludeDirectories\)|<)', '\udis86;..\udis86\libudis86;$1')
         }
+    }
+
+    if ($MO2Version -eq '2.5.0') {
+        # v0.5.0 ships Release with static CRT but ReleaseTest with DLL CRT.
+        # Normalize ReleaseTest to static CRT so x86/x64 test builds link against the same Boost flavor as shipped binaries.
+        $vcxText = [regex]::Replace(
+            $vcxText,
+            "(?s)(<ItemDefinitionGroup Condition=\"'\$\(Configuration\)\|\$\(Platform\)'=='ReleaseTest\|(?:Win32|x64)'\">.*?<RuntimeLibrary>)MultiThreadedDLL(</RuntimeLibrary>)",
+            '$1MultiThreaded$2')
     }
 
     if ($vcxText -ne $vcxTextOrig) {
