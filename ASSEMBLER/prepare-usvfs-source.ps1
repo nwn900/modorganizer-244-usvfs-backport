@@ -1222,9 +1222,10 @@ Get-ChildItem -Path $sourceDir -Include '*.vcxproj', '*.props' -Recurse | ForEac
 
     if ($MO2Version -eq '2.5.0') {
         # v0.5.0 ships Release with static CRT but ReleaseTest with DLL CRT.
-        # Normalize ReleaseTest to static CRT so x86/x64 test builds link against the same Boost flavor as shipped binaries.
+        # Normalize only Win32 ReleaseTest to static CRT so the x86 support
+        # binaries match the shipped Boost flavor without breaking x64 gtests.
         $releaseTestStaticCrtPattern = @'
-(?s)(<ItemDefinitionGroup Condition="'\$\((?:Configuration)\)\|\$\((?:Platform)\)'=='ReleaseTest\|(?:Win32|x64)'">.*?<RuntimeLibrary>)MultiThreadedDLL(</RuntimeLibrary>)
+(?s)(<ItemDefinitionGroup Condition="'\$\((?:Configuration)\)\|\$\((?:Platform)\)'=='ReleaseTest\|Win32'">.*?<RuntimeLibrary>)MultiThreadedDLL(</RuntimeLibrary>)
 '@.Trim()
         $vcxText = [regex]::Replace(
             $vcxText,
