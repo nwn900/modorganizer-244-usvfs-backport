@@ -29,27 +29,23 @@ along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 #include "shared/appconfig.h"
 #include "shared/windows_error.h"
 #include "utility.h"
-#include <format>
 #include <QApplication>
 #include <QMessageBox>
 #include <QtDebug>
 #include <Shellapi.h>
 #include <errorcodes.h>
+#include <format>
 #include <log.h>
 #include <report.h>
 #include <usvfs.h>
 
-extern "C" BOOL WINAPI CreateProcessHooked(
-    LPCWSTR applicationName,
-    LPWSTR commandLine,
-    LPSECURITY_ATTRIBUTES processAttributes,
-    LPSECURITY_ATTRIBUTES threadAttributes,
-    BOOL inheritHandles,
-    DWORD creationFlags,
-    LPVOID environment,
-    LPCWSTR currentDirectory,
-    LPSTARTUPINFOW startupInfo,
-    LPPROCESS_INFORMATION processInformation);
+extern "C" BOOL WINAPI CreateProcessHooked(LPCWSTR applicationName, LPWSTR commandLine,
+                                           LPSECURITY_ATTRIBUTES processAttributes,
+                                           LPSECURITY_ATTRIBUTES threadAttributes,
+                                           BOOL inheritHandles, DWORD creationFlags,
+                                           LPVOID environment, LPCWSTR currentDirectory,
+                                           LPSTARTUPINFOW startupInfo,
+                                           LPPROCESS_INFORMATION processInformation);
 
 using namespace MOBase;
 using namespace MOShared;

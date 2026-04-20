@@ -1116,8 +1116,7 @@ void PluginList::generatePluginIndexes()
       ++numESLs;
     } else {
       m_ESPs[i].index = QString("%1")
-                            .arg(l - numESHs - numESLs - numSkipped, 2, 16,
-                                 QChar('0'))
+                            .arg(l - numESHs - numESLs - numSkipped, 2, 16, QChar('0'))
                             .toUpper();
     }
   }

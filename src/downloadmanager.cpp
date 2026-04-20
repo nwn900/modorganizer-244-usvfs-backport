@@ -761,9 +761,8 @@ void DownloadManager::addNXMDownload(const QString& url)
   emit aboutToUpdate();
   {
     std::lock_guard<std::recursive_mutex> lock(m_ListMutex);
-    m_PendingDownloads.append(std::make_tuple(foundGame->gameShortName(),
-                                              nxmInfo.modId(),
-                                              nxmInfo.fileId()));
+    m_PendingDownloads.append(
+        std::make_tuple(foundGame->gameShortName(), nxmInfo.modId(), nxmInfo.fileId()));
   }
 
   emit update(-1);
@@ -1987,8 +1986,7 @@ int DownloadManager::indexByName(const QString& fileName) const
 {
   std::lock_guard<std::recursive_mutex> lock(m_ListMutex);
   for (int i = 0; i < m_ActiveDownloads.size(); ++i) {
-    if (m_ActiveDownloads[i]->m_FileName.compare(fileName, Qt::CaseInsensitive) ==
-        0) {
+    if (m_ActiveDownloads[i]->m_FileName.compare(fileName, Qt::CaseInsensitive) == 0) {
       return i;
     }
   }

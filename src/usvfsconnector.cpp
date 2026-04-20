@@ -32,19 +32,20 @@ along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 #include <sstream>
 #include <usvfs.h>
 
-extern "C" {
-bool WINAPI GetLogMessages(LPSTR buffer, size_t size, bool blocking);
-void WINAPI InitLogging(bool toLocal);
-VOID WINAPI BlacklistExecutable(LPWSTR executableName);
-VOID WINAPI ClearExecutableBlacklist();
-VOID WINAPI ForceLoadLibrary(LPWSTR processName, LPWSTR libraryPath);
-VOID WINAPI ClearLibraryForceLoads();
-void WINAPI DisconnectVFS();
-void WINAPI ClearVirtualMappings();
-BOOL WINAPI VirtualLinkFile(LPCWSTR source, LPCWSTR destination, unsigned int flags);
-BOOL WINAPI VirtualLinkDirectoryStatic(LPCWSTR source, LPCWSTR destination,
-                                       unsigned int flags);
-BOOL WINAPI GetVFSProcessList2(size_t* count, DWORD** buffer);
+extern "C"
+{
+  bool WINAPI GetLogMessages(LPSTR buffer, size_t size, bool blocking);
+  void WINAPI InitLogging(bool toLocal);
+  VOID WINAPI BlacklistExecutable(LPWSTR executableName);
+  VOID WINAPI ClearExecutableBlacklist();
+  VOID WINAPI ForceLoadLibrary(LPWSTR processName, LPWSTR libraryPath);
+  VOID WINAPI ClearLibraryForceLoads();
+  void WINAPI DisconnectVFS();
+  void WINAPI ClearVirtualMappings();
+  BOOL WINAPI VirtualLinkFile(LPCWSTR source, LPCWSTR destination, unsigned int flags);
+  BOOL WINAPI VirtualLinkDirectoryStatic(LPCWSTR source, LPCWSTR destination,
+                                         unsigned int flags);
+  BOOL WINAPI GetVFSProcessList2(size_t* count, DWORD** buffer);
 }
 
 static const char SHMID[] = "mod_organizer_instance";
