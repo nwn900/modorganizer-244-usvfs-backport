@@ -891,6 +891,10 @@ $boostLinkLibrariesByPlatform = [ordered]@{
     'Win32' = @()
     'x64' = @()
 }
+$boostLibDirByPlatform = [ordered]@{
+    'Win32' = $null
+    'x64' = $null
+}
 
 if (!(Test-Path $sourceDir)) {
     $parent = Split-Path -Parent $sourceDir
@@ -1117,6 +1121,7 @@ if (!$BoostPath -and $UseVcpkgBoost) {
         }
 
         $boostLinkLibrariesByPlatform[$platform] = Get-BoostLinkLibraries $vcpkgLib -PreferStaticRuntime:($MO2Version -eq '2.5.0')
+        $boostLibDirByPlatform[$platform] = $vcpkgLib
 
         $compatLibRootName = Get-BoostCompatLibRootName $platform $MO2Version
         $compatLibRoot = Join-Path $compatRoot $compatLibRootName
@@ -1150,22 +1155,52 @@ if ($BoostPath) {
             ) | Where-Object { Test-Path $_ } | Select-Object -Unique
 
             foreach ($libDir in $candidateLibDirs) {
-                $boostLinkLibrariesByPlatform[$platform] = Get-BoostLinkLibraries $libDir -PreferStaticRuntime:($MO2Version -eq '2.5.0')
-                if ($boostLinkLibrariesByPlatform[$platform].Count -gt 0) {
+                $boostLibraries = Get-BoostLinkLibraries $libDir -PreferStaticRuntime:($MO2Version -eq '2.5.0')
+                if ($boostLibraries.Count -gt 0) {
+                    $boostLinkLibrariesByPlatform[$platform] = $boostLibraries
+                    $boostLibDirByPlatform[$platform] = $libDir
                     break
                 }
             }
         }
 
         if ($boostLinkLibrariesByPlatform[$platform].Count -gt 0) {
-            $escapedBoostLibraries = (($boostLinkLibrariesByPlatform[$platform] -join ';') + ';%(AdditionalDependencies)').Replace('&', '&amp;')
-            $boostLinkXml += @"
+            if ($MO2Version -eq '2.5.0' -and $platform -eq 'x64' -and $boostLibDirByPlatform[$platform]) {
+                $x64ReleaseBoostLibraries = $boostLinkLibrariesByPlatform[$platform]
+                $x64ReleaseTestBoostLibraries = Get-BoostLinkLibraries $boostLibDirByPlatform[$platform]
+                if ($x64ReleaseTestBoostLibraries.Count -eq 0) {
+                    throw "Dynamic-runtime Boost libraries were not found for x64 ReleaseTest under $($boostLibDirByPlatform[$platform])"
+                }
+
+                foreach ($boostConfig in @(
+                    @{
+                        Condition = "'`$(Platform)'=='x64' and '`$(Configuration)'=='ReleaseTest'"
+                        Libraries = $x64ReleaseTestBoostLibraries
+                    },
+                    @{
+                        Condition = "'`$(Platform)'=='x64' and '`$(Configuration)'!='ReleaseTest'"
+                        Libraries = $x64ReleaseBoostLibraries
+                    }
+                )) {
+                    $escapedBoostLibraries = (($boostConfig.Libraries -join ';') + ';%(AdditionalDependencies)').Replace('&', '&amp;')
+                    $boostLinkXml += @"
+  <ItemDefinitionGroup Condition="$($boostConfig.Condition)">
+    <Link>
+      <AdditionalDependencies>$escapedBoostLibraries</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+"@
+                }
+            } else {
+                $escapedBoostLibraries = (($boostLinkLibrariesByPlatform[$platform] -join ';') + ';%(AdditionalDependencies)').Replace('&', '&amp;')
+                $boostLinkXml += @"
   <ItemDefinitionGroup Condition="'`$(Platform)'=='$platform'">
     <Link>
       <AdditionalDependencies>$escapedBoostLibraries</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
 "@
+            }
         }
     }
 
