@@ -796,14 +796,36 @@ if (-not (Test-Path -LiteralPath $msbuild)) {
     throw "MSBuild.exe not found at $msbuild"
 }
 
-Write-Step "Building usvfs ReleaseTest binaries for x86"
-& $msbuild $usvfsSolution -m -noLogo `
-    -p:Configuration=ReleaseTest `
-    -p:Platform=x86 `
-    -p:UseMultiToolTask=true `
-    -p:EnforceProcessCountAcrossBuilds=true
-if ($LASTEXITCODE -ne 0) {
-    throw "usvfs ReleaseTest x86 build failed"
+if ($TargetVersion -eq "2.5.0") {
+    # Keep x86 child-process coverage for the x64 runner, but skip the standalone
+    # x86 gtest executables that do not match the shipped 2.5.x runtime/toolchain.
+    $x86SupportTargets = @(
+        "usvfs_dll",
+        "usvfs_proxy",
+        "testinject_bin",
+        "testinject_dll"
+    )
+
+    Write-Step "Building usvfs ReleaseTest support binaries for x86"
+    & $msbuild $usvfsSolution -m -noLogo `
+        -target:($x86SupportTargets -join ';') `
+        -p:Configuration=ReleaseTest `
+        -p:Platform=x86 `
+        -p:UseMultiToolTask=true `
+        -p:EnforceProcessCountAcrossBuilds=true
+    if ($LASTEXITCODE -ne 0) {
+        throw "usvfs ReleaseTest x86 support build failed"
+    }
+} else {
+    Write-Step "Building usvfs ReleaseTest binaries for x86"
+    & $msbuild $usvfsSolution -m -noLogo `
+        -p:Configuration=ReleaseTest `
+        -p:Platform=x86 `
+        -p:UseMultiToolTask=true `
+        -p:EnforceProcessCountAcrossBuilds=true
+    if ($LASTEXITCODE -ne 0) {
+        throw "usvfs ReleaseTest x86 build failed"
+    }
 }
 
 Write-Step "Building usvfs ReleaseTest binaries for x64"
