@@ -803,7 +803,8 @@ if ($TargetVersion -eq "2.5.0") {
         (Join-Path $usvfsRoot "vsbuild\usvfs_dll.vcxproj"),
         (Join-Path $usvfsRoot "vsbuild\usvfs_proxy.vcxproj"),
         (Join-Path $usvfsRoot "vsbuild\testinject_bin.vcxproj"),
-        (Join-Path $usvfsRoot "vsbuild\testinject_dll.vcxproj")
+        (Join-Path $usvfsRoot "vsbuild\testinject_dll.vcxproj"),
+        (Join-Path $usvfsRoot "vsbuild\test_file_operations.vcxproj")
     )
 
     Write-Step "Building usvfs ReleaseTest support binaries for x86"
