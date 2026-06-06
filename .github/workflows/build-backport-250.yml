@@ -3,7 +3,7 @@ name: build-backport-250
 on:
   push:
     branches:
-      - codex/backport-250-download-install-fixes
+      - codex/backport-250-exe-stock-runtime
   workflow_dispatch:
 
 permissions:
@@ -13,7 +13,7 @@ env:
   TARGET_MO2_VERSION: 2.5.0
   MOB_REF: eba5bf4
   MO_BRANCH: master
-  USER_BRANCH: codex/backport-250-download-install-fixes
+  USER_BRANCH: codex/backport-250-exe-stock-runtime
   USER_ORG: nwn900
   USVFS_REF: v0.5.0
   QT_VERSION: 6.4.3

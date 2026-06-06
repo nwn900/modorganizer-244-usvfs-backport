@@ -309,6 +309,27 @@ function Patch-CmakeCommonFmtCompatibility([string]$Prefix) {
     }
 }
 
+function Patch-BsapackerQt64Compatibility([string]$Prefix) {
+    $sourcePath = Join-Path $Prefix "build\modorganizer_super\bsapacker\src\OverrideFileService.cpp"
+    if (-not (Test-Path -LiteralPath $sourcePath)) {
+        return
+    }
+
+    $content = Get-Content -LiteralPath $sourcePath -Raw
+    $needle = 'qWarning() << "Failed to create" << absoluteFileName;'
+    $replacement = 'qWarning() << "Failed to create" << QString::fromStdString(absoluteFileName);'
+    if ($content.Contains($replacement)) {
+        return
+    }
+
+    if (-not $content.Contains($needle)) {
+        throw "Failed to patch bsapacker Qt 6.4 compatibility"
+    }
+
+    Set-AsciiContent -Path $sourcePath -Content $content.Replace($needle, $replacement)
+    Write-Step "Patched bsapacker Qt 6.4 compatibility"
+}
+
 function Patch-MobInterruptCleanup([string]$MobRoot) {
     $fsUtil = Join-Path $MobRoot "src\utility\fs.cpp"
     $content = Get-Content -LiteralPath $fsUtil -Raw
@@ -359,6 +380,63 @@ function Patch-MobInterruptCleanup([string]$MobRoot) {
 '@
 
     Replace-InFile -Path $fsUtil -Needle $needle -Replacement $replacement
+}
+
+function Expand-StockMo2Release {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Version,
+
+        [Parameter(Mandatory = $true)]
+        [string]$DownloadsDir,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Destination
+    )
+
+    $archivePath = Join-Path $DownloadsDir "Mod.Organizer-$Version.7z"
+    Get-ArchiveWithFallback -OutFile $archivePath -Urls @(
+        "https://github.com/ModOrganizer2/modorganizer/releases/download/v$Version/Mod.Organizer-$Version.7z"
+    )
+
+    if (Test-Path -LiteralPath $Destination) {
+        Remove-Item -LiteralPath $Destination -Recurse -Force
+    }
+    New-Item -ItemType Directory -Path $Destination -Force | Out-Null
+
+    & 7z.exe x -bd "-o$Destination" $archivePath | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        throw "Failed to extract stock MO2 $Version release"
+    }
+}
+
+function Test-StockDropInReplacement {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$BuiltExe,
+
+        [Parameter(Mandatory = $true)]
+        [string]$StockRoot
+    )
+
+    $stockExe = Find-ModOrganizerExe -InstallRoot $StockRoot
+    Copy-Item -LiteralPath $BuiltExe -Destination $stockExe -Force
+
+    $stockProcess = $null
+    try {
+        $stockProcess = Start-Process -FilePath $stockExe -ArgumentList "--pick", "--multiple" `
+            -WorkingDirectory (Split-Path -Path $stockExe -Parent) -PassThru
+        Start-Sleep -Seconds 20
+
+        if ($stockProcess.HasExited) {
+            throw "Stock drop-in ModOrganizer exited early with code $($stockProcess.ExitCode)"
+        }
+    } finally {
+        if ($stockProcess -and -not $stockProcess.HasExited) {
+            Stop-Process -Id $stockProcess.Id -Force -ErrorAction SilentlyContinue
+            Wait-Process -Id $stockProcess.Id -ErrorAction SilentlyContinue
+        }
+    }
 }
 
 function Get-DependencySnapshots([string]$Version) {
@@ -504,13 +582,14 @@ $prefix = Join-Path $runnerTemp ("mo2-prefix-" + $TargetVersion.Replace(".", "")
 $mobRoot = Join-Path $runnerTemp ("mob-" + $TargetVersion.Replace(".", ""))
 $iniPath = Join-Path $runnerTemp ("ci-" + $TargetVersion.Replace(".", "") + ".mob.ini")
 $outputDir = Join-Path $workspace "ci-output"
-$overlayDir = Join-Path $outputDir "MO2 compiled"
-$zipName = "ModOrganizer-$TargetVersion-backport-usvfs-fixes-overlay.zip"
+$overlayDir = Join-Path $outputDir "ModOrganizer-$TargetVersion-backport-usvfs-fixes-exe"
+$zipName = "ModOrganizer-$TargetVersion-backport-usvfs-fixes-exe.zip"
 $zipPath = Join-Path $outputDir $zipName
 $smokePath = Join-Path $outputDir "SMOKE_TEST_RESULTS.txt"
 $shaPath = Join-Path $outputDir "SHA256SUMS.txt"
 $mobLogPath = Join-Path $prefix "mob-ci.log"
 $msbuild = Join-Path $vsPath "MSBuild\Current\Bin\MSBuild.exe"
+$stockRoot = Join-Path $runnerTemp ("stock-mo2-" + $TargetVersion.Replace(".", ""))
 
 Write-Step "Preparing output directories"
 foreach ($path in @($prefix, $mobRoot, $outputDir)) {
@@ -683,6 +762,9 @@ Patch-CmakeCommonFmtCompatibility -Prefix $prefix
 Write-Step "Patching fetched uibase sources"
 Patch-UibaseLoggingCompatibility -Prefix $prefix
 
+Write-Step "Patching fetched bsapacker sources"
+Patch-BsapackerQt64Compatibility -Prefix $prefix
+
 $usvfsRoot = Join-Path $prefix "build\usvfs"
 if (-not (Test-Path -LiteralPath $usvfsRoot)) {
     throw "usvfs source not found at $usvfsRoot"
@@ -760,6 +842,7 @@ Write-Step "Found ModOrganizer.exe at $modOrganizerExe"
 
 $env:QTWEBENGINE_DISABLE_SANDBOX = "1"
 $launchSummary = "FAIL"
+$stockDropInSummary = "FAIL"
 
 Write-Step "Running Mod Organizer launch smoke test"
 $moProcess = $null
@@ -779,6 +862,11 @@ try {
         Wait-Process -Id $moProcess.Id -ErrorAction SilentlyContinue
     }
 }
+
+Write-Step "Running stock 2.5.0 drop-in smoke test"
+Expand-StockMo2Release -Version $TargetVersion -DownloadsDir $downloadsDir -Destination $stockRoot
+Test-StockDropInReplacement -BuiltExe $modOrganizerExe -StockRoot $stockRoot
+$stockDropInSummary = "PASS (built ModOrganizer.exe ran for 20s using only stock $TargetVersion release files)"
 
 $buildRoot = Join-Path $prefix "build"
 $boostRoot = Find-BoostRoot -BuildRoot $buildRoot
@@ -867,9 +955,9 @@ if ($LASTEXITCODE -ne 0) {
     throw "usvfs_test_runner_x64.exe failed"
 }
 
-Write-Step "Preparing release-style overlay artifact"
+Write-Step "Preparing EXE-only drop-in artifact"
 New-Item -ItemType Directory -Path $overlayDir -Force | Out-Null
-Copy-Item -Path (Join-Path $installRoot "*") -Destination $overlayDir -Recurse
+Copy-Item -LiteralPath $modOrganizerExe -Destination (Join-Path $overlayDir "ModOrganizer.exe") -Force
 
 if (Test-Path -LiteralPath $zipPath) {
     Remove-Item -LiteralPath $zipPath -Force
@@ -896,6 +984,7 @@ $report = @(
     "usvfs ref: $UsvfsRef"
     "Commit: $env:GITHUB_SHA"
     "Launch smoke: $launchSummary"
+    "Stock $TargetVersion drop-in smoke: $stockDropInSummary"
     "tvfs_test_x64.exe: PASS"
     "usvfs_test_runner_x64.exe: PASS (x64 creator + x86 child injection coverage)"
 )
