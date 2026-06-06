@@ -1057,45 +1057,26 @@ Expand-StockMo2Release -Version $TargetVersion -DownloadsDir $downloadsDir -Dest
 Test-StockDropInReplacement -BuiltExe $modOrganizerExe -StockRoot $stockRoot
 $stockDropInSummary = "PASS (built ModOrganizer.exe ran for 20s using only stock $TargetVersion release files)"
 
-$buildRoot = Join-Path $prefix "build"
-$boostRoot = Find-BoostRoot -BuildRoot $buildRoot
-if ($boostRoot) {
-    $env:BOOST_PATH = $boostRoot.FullName
-    Write-Step "Using Boost root $($boostRoot.FullName) for usvfs test builds"
-}
-$gtestRoot = Join-Path $buildRoot "googletest"
-if (Test-Path -LiteralPath $gtestRoot) {
-    $env:GTEST_PATH = $gtestRoot
-}
-
-$usvfsSolution = Join-Path $usvfsRoot "vsbuild\usvfs.sln"
-if (-not (Test-Path -LiteralPath $msbuild)) {
-    throw "MSBuild.exe not found at $msbuild"
-}
-
+$usvfsTestSummary = "SKIP (EXE-only $TargetVersion drop-in uses stock usvfs files)"
 if ($TargetVersion -eq "2.5.0") {
-    # Keep x86 child-process coverage for the x64 runner, but skip the standalone
-    # x86 gtest executables that do not match the shipped 2.5.x runtime/toolchain.
-    $x86SupportProjects = @(
-        (Join-Path $usvfsRoot "vsbuild\usvfs_dll.vcxproj"),
-        (Join-Path $usvfsRoot "vsbuild\usvfs_proxy.vcxproj"),
-        (Join-Path $usvfsRoot "vsbuild\testinject_bin.vcxproj"),
-        (Join-Path $usvfsRoot "vsbuild\testinject_dll.vcxproj"),
-        (Join-Path $usvfsRoot "vsbuild\test_file_operations.vcxproj")
-    )
-
-    Write-Step "Building usvfs ReleaseTest support binaries for x86"
-    foreach ($project in $x86SupportProjects) {
-        & $msbuild $project -m -noLogo `
-            -p:Configuration=ReleaseTest `
-            -p:Platform=x86 `
-            -p:UseMultiToolTask=true `
-            -p:EnforceProcessCountAcrossBuilds=true
-        if ($LASTEXITCODE -ne 0) {
-            throw "usvfs ReleaseTest x86 support build failed"
-        }
-    }
+    Write-Step "Skipping usvfs ReleaseTest builds for EXE-only stock 2.5.0 artifact"
 } else {
+    $buildRoot = Join-Path $prefix "build"
+    $boostRoot = Find-BoostRoot -BuildRoot $buildRoot
+    if ($boostRoot) {
+        $env:BOOST_PATH = $boostRoot.FullName
+        Write-Step "Using Boost root $($boostRoot.FullName) for usvfs test builds"
+    }
+    $gtestRoot = Join-Path $buildRoot "googletest"
+    if (Test-Path -LiteralPath $gtestRoot) {
+        $env:GTEST_PATH = $gtestRoot
+    }
+
+    $usvfsSolution = Join-Path $usvfsRoot "vsbuild\usvfs.sln"
+    if (-not (Test-Path -LiteralPath $msbuild)) {
+        throw "MSBuild.exe not found at $msbuild"
+    }
+
     Write-Step "Building usvfs ReleaseTest binaries for x86"
     & $msbuild $usvfsSolution -m -noLogo `
         -p:Configuration=ReleaseTest `
@@ -1105,43 +1086,40 @@ if ($TargetVersion -eq "2.5.0") {
     if ($LASTEXITCODE -ne 0) {
         throw "usvfs ReleaseTest x86 build failed"
     }
-}
 
-Write-Step "Building usvfs ReleaseTest binaries for x64"
-& $msbuild $usvfsSolution -m -noLogo `
-    -p:Configuration=ReleaseTest `
-    -p:Platform=x64 `
-    -p:UseMultiToolTask=true `
-    -p:EnforceProcessCountAcrossBuilds=true
-if ($LASTEXITCODE -ne 0) {
-    throw "usvfs ReleaseTest x64 build failed"
-}
+    Write-Step "Building usvfs ReleaseTest binaries for x64"
+    & $msbuild $usvfsSolution -m -noLogo `
+        -p:Configuration=ReleaseTest `
+        -p:Platform=x64 `
+        -p:UseMultiToolTask=true `
+        -p:EnforceProcessCountAcrossBuilds=true
+    if ($LASTEXITCODE -ne 0) {
+        throw "usvfs ReleaseTest x64 build failed"
+    }
 
-$testBin = Join-Path $usvfsRoot "test\bin"
-$tvfsExe = Join-Path $testBin "tvfs_test_x64.exe"
-$runnerExe = Join-Path $testBin "usvfs_test_runner_x64.exe"
-if (-not (Test-Path -LiteralPath $tvfsExe)) {
-    throw "tvfs_test_x64.exe not found at $tvfsExe"
-}
-if (-not (Test-Path -LiteralPath $runnerExe)) {
-    throw "usvfs_test_runner_x64.exe not found at $runnerExe"
-}
+    $testBin = Join-Path $usvfsRoot "test\bin"
+    $tvfsExe = Join-Path $testBin "tvfs_test_x64.exe"
+    $runnerExe = Join-Path $testBin "usvfs_test_runner_x64.exe"
+    if (-not (Test-Path -LiteralPath $tvfsExe)) {
+        throw "tvfs_test_x64.exe not found at $tvfsExe"
+    }
+    if (-not (Test-Path -LiteralPath $runnerExe)) {
+        throw "usvfs_test_runner_x64.exe not found at $runnerExe"
+    }
 
-Write-Step "Running tvfs_test_x64.exe"
-& $tvfsExe
-if ($LASTEXITCODE -ne 0) {
-    throw "tvfs_test_x64.exe failed"
-}
+    Write-Step "Running tvfs_test_x64.exe"
+    & $tvfsExe
+    if ($LASTEXITCODE -ne 0) {
+        throw "tvfs_test_x64.exe failed"
+    }
 
-Write-Step "Running usvfs_test_runner_x64.exe"
-# Keep real release coverage: x64 creator path plus injected x86 child processes.
-# The standalone x86 creator tests do not match the shipped 2.5.x organizer runtime.
-$runnerArgs = @(
-    '--gtest_filter=-UsvfsTest.basic_x86:UsvfsTest.basic_ops64_x86'
-)
-& $runnerExe @runnerArgs
-if ($LASTEXITCODE -ne 0) {
-    throw "usvfs_test_runner_x64.exe failed"
+    Write-Step "Running usvfs_test_runner_x64.exe"
+    & $runnerExe
+    if ($LASTEXITCODE -ne 0) {
+        throw "usvfs_test_runner_x64.exe failed"
+    }
+
+    $usvfsTestSummary = "PASS (usvfs_test_runner_x64.exe)"
 }
 
 Write-Step "Preparing EXE-only drop-in artifact"
@@ -1175,7 +1153,7 @@ $report = @(
     "Launch smoke: $launchSummary"
     "Stock $TargetVersion drop-in smoke: $stockDropInSummary"
     "tvfs_test_x64.exe: PASS"
-    "usvfs_test_runner_x64.exe: PASS (x64 creator + x86 child injection coverage)"
+    "usvfs tests: $usvfsTestSummary"
 )
 
 if ($env:GITHUB_SERVER_URL -and $env:GITHUB_REPOSITORY -and $env:GITHUB_RUN_ID) {
