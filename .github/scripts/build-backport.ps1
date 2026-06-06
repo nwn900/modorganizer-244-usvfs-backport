@@ -580,7 +580,7 @@ function Get-DependencySnapshots([string]$Version) {
                 "archive"                        = "a13e224c17fb0f2210305cb3dcc442f25f2fd58c"
                 "lootcli"                        = "460a29d3fa4c260db192c18741ac8dd21a549ae3"
                 "esptk"                          = "9d9708bc827fdfa9019e24e0bdd3ed7d35d1553e"
-                "bsatk"                          = "2882fd352bdd97d4bc67bedafeba6d55c269cdeb"
+                "bsatk"                          = "37052a8c321d402edf0b21321c36e2fb900857e8"
                 "nxmhandler"                     = "9876f57cd508c56028ec16ba0967ef1ead6fc47d"
                 "helper"                         = "ce072e46a781bfb3b1e3ba20b32df81f7486cdb4"
                 "githubpp"                       = "308c00967d1237e1ff8589f8aa36ad8b016a662a"
