@@ -591,6 +591,7 @@ $mobLogPath = Join-Path $prefix "mob-ci.log"
 $msbuild = Join-Path $vsPath "MSBuild\Current\Bin\MSBuild.exe"
 $stockRoot = Join-Path $runnerTemp ("stock-mo2-" + $TargetVersion.Replace(".", ""))
 $coreBuildTasks = @(
+    "directxtex",
     "cmake_common",
     "usvfs",
     "uibase",
