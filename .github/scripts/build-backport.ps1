@@ -1152,7 +1152,6 @@ $report = @(
     "Commit: $env:GITHUB_SHA"
     "Launch smoke: $launchSummary"
     "Stock $TargetVersion drop-in smoke: $stockDropInSummary"
-    "tvfs_test_x64.exe: PASS"
     "usvfs tests: $usvfsTestSummary"
 )
 
