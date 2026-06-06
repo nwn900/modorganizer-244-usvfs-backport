@@ -787,7 +787,11 @@ Write-Step "Pinning Mod Organizer dependency snapshots"
 Pin-DependencySnapshots -Prefix $prefix -Version $TargetVersion
 
 Write-Step "Patching fetched cmake_common sources"
-Patch-CmakeCommonFmtCompatibility -Prefix $prefix
+if ($TargetVersion -eq "2.5.0") {
+    Write-Step "Keeping stock cmake_common fmt lookup for runtime compatibility"
+} else {
+    Patch-CmakeCommonFmtCompatibility -Prefix $prefix
+}
 
 Write-Step "Patching fetched uibase sources"
 Patch-UibaseLoggingCompatibility -Prefix $prefix
