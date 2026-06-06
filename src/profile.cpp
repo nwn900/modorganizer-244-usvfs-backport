@@ -20,7 +20,6 @@ along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 #include "profile.h"
 
 #include "filesystemutilities.h"
-#include "game_features.h"
 #include "modinfo.h"
 #include "modinfoforeign.h"
 #include "registry.h"
@@ -74,9 +73,9 @@ void Profile::touchFile(QString fileName)
 }
 
 Profile::Profile(const QString& name, IPluginGame const* gamePlugin,
-                 GameFeatures const& gameFeatures, bool useDefaultSettings)
+                 bool useDefaultSettings)
     : m_ModListWriter(std::bind(&Profile::doWriteModlist, this)),
-      m_GameFeatures(gameFeatures), m_GamePlugin(gamePlugin)
+      m_GamePlugin(gamePlugin)
 {
   QString profilesDir = Settings::instance().paths().profiles();
   QDir profileBase(profilesDir);
@@ -115,9 +114,8 @@ Profile::Profile(const QString& name, IPluginGame const* gamePlugin,
   refreshModStatus();
 }
 
-Profile::Profile(const QDir& directory, IPluginGame const* gamePlugin,
-                 GameFeatures const& gameFeatures)
-    : m_Directory(directory), m_GameFeatures(gameFeatures), m_GamePlugin(gamePlugin),
+Profile::Profile(const QDir& directory, IPluginGame const* gamePlugin)
+    : m_Directory(directory), m_GamePlugin(gamePlugin),
       m_ModListWriter(std::bind(&Profile::doWriteModlist, this))
 {
   assert(gamePlugin != nullptr);
@@ -140,7 +138,7 @@ Profile::Profile(const QDir& directory, IPluginGame const* gamePlugin,
 Profile::Profile(const Profile& reference)
     : m_Directory(reference.m_Directory),
       m_ModListWriter(std::bind(&Profile::doWriteModlist, this)),
-      m_GameFeatures(reference.m_GameFeatures), m_GamePlugin(reference.m_GamePlugin)
+      m_GamePlugin(reference.m_GamePlugin)
 
 {
   m_Settings =
@@ -193,9 +191,9 @@ void Profile::findProfileSettings()
   }
 
   if (setting("", "AutomaticArchiveInvalidation") == QVariant()) {
-    auto invalidation = m_GameFeatures.gameFeature<BSAInvalidation>();
-    auto dataArchives = m_GameFeatures.gameFeature<DataArchives>();
-    bool found        = false;
+    BSAInvalidation* invalidation = m_GamePlugin->feature<BSAInvalidation>();
+    DataArchives* dataArchives    = m_GamePlugin->feature<DataArchives>();
+    bool found                    = false;
     if ((invalidation != nullptr) && (dataArchives != nullptr)) {
       for (const QString& archive : dataArchives->archives(this)) {
         if (invalidation->isInvalidationBSA(archive)) {
@@ -733,7 +731,7 @@ Profile* Profile::createPtrFrom(const QString& name, const Profile& reference,
 {
   QString profileDirectory = Settings::instance().paths().profiles() + "/" + name;
   reference.copyFilesTo(profileDirectory);
-  return new Profile(QDir(profileDirectory), gamePlugin, reference.m_GameFeatures);
+  return new Profile(QDir(profileDirectory), gamePlugin);
 }
 
 void Profile::copyFilesTo(QString& target) const
@@ -813,8 +811,8 @@ void Profile::mergeTweaks(ModInfo::Ptr modInfo, const QString& tweakedIni) const
 
 bool Profile::invalidationActive(bool* supported) const
 {
-  auto invalidation = m_GameFeatures.gameFeature<BSAInvalidation>();
-  auto dataArchives = m_GameFeatures.gameFeature<DataArchives>();
+  BSAInvalidation* invalidation = m_GamePlugin->feature<BSAInvalidation>();
+  DataArchives* dataArchives    = m_GamePlugin->feature<DataArchives>();
 
   if (supported != nullptr) {
     *supported = ((invalidation != nullptr) && (dataArchives != nullptr));
@@ -827,7 +825,7 @@ bool Profile::invalidationActive(bool* supported) const
 
 void Profile::deactivateInvalidation()
 {
-  auto invalidation = m_GameFeatures.gameFeature<BSAInvalidation>();
+  BSAInvalidation* invalidation = m_GamePlugin->feature<BSAInvalidation>();
 
   if (invalidation != nullptr) {
     invalidation->deactivate(this);
@@ -838,7 +836,7 @@ void Profile::deactivateInvalidation()
 
 void Profile::activateInvalidation()
 {
-  auto invalidation = m_GameFeatures.gameFeature<BSAInvalidation>();
+  BSAInvalidation* invalidation = m_GamePlugin->feature<BSAInvalidation>();
 
   if (invalidation != nullptr) {
     invalidation->activate(this);

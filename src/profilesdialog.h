@@ -20,12 +20,13 @@ along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 #ifndef PROFILESDIALOG_H
 #define PROFILESDIALOG_H
 
-#include <QObject>
-
 #include "tutorabledialog.h"
+class Profile;
+class OrganizerCore;
 
 class QListWidget;
 class QListWidgetItem;
+#include <QObject>
 class QString;
 
 namespace Ui
@@ -37,10 +38,6 @@ namespace MOBase
 {
 class IPluginGame;
 }
-
-class GameFeatures;
-class Profile;
-class OrganizerCore;
 
 /**
  * @brief Dialog that can be used to create/delete/modify profiles
@@ -129,7 +126,6 @@ private slots:
 
 private:
   Ui::ProfilesDialog* ui;
-  GameFeatures& m_GameFeatures;
   QListWidget* m_ProfilesList;
   bool m_FailState;
   MOBase::IPluginGame const* m_Game;

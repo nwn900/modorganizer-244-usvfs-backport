@@ -30,8 +30,6 @@ along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 #include <tuple>
 #include <vector>
 
-class OrganizerCore;
-
 /**
  * @brief used to asynchronously generate the virtual view of the combined data
  *directory
@@ -56,7 +54,7 @@ public:
     int priority;
   };
 
-  DirectoryRefresher(OrganizerCore* core, std::size_t threadCount);
+  DirectoryRefresher(std::size_t threadCount);
 
   /**
    * @brief retrieve the updated directory structure
@@ -148,8 +146,6 @@ signals:
   void refreshed();
 
 private:
-  OrganizerCore& m_Core;
-
   std::vector<EntryInfo> m_Mods;
   std::set<QString> m_EnabledArchives;
   std::unique_ptr<MOShared::DirectoryEntry> m_Root;

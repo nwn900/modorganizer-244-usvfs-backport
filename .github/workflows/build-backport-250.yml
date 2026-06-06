@@ -11,8 +11,8 @@ permissions:
 
 env:
   TARGET_MO2_VERSION: 2.5.0
-  MOB_REF: eba5bf4
-  MO_BRANCH: master
+  MOB_REF: 2.5-dependencies
+  MO_BRANCH: 2_5_x
   USER_BRANCH: codex/backport-250-exe-stock-runtime
   USER_ORG: nwn900
   USVFS_REF: v0.5.0

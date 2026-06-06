@@ -323,7 +323,8 @@ function Patch-BsapackerQt64Compatibility([string]$Prefix) {
     }
 
     if (-not $content.Contains($needle)) {
-        throw "Failed to patch bsapacker Qt 6.4 compatibility"
+        Write-Step "Bsapacker Qt compatibility patch not needed"
+        return
     }
 
     Set-AsciiContent -Path $sourcePath -Content $content.Replace($needle, $replacement)
@@ -552,6 +553,11 @@ function Get-DependencySnapshots([string]$Version) {
 }
 
 function Pin-DependencySnapshots([string]$Prefix, [string]$Version) {
+    if ($Version -eq "2.5.0") {
+        Write-Step "Using mob 2.5-dependencies snapshots for stock runtime compatibility"
+        return
+    }
+
     $snapshots = Get-DependencySnapshots -Version $Version
     if ($snapshots.Count -eq 0) {
         return
@@ -602,7 +608,6 @@ $coreBuildTasks = @(
     "openssl",
     "libbsarch",
     "gtest",
-    "directxtex",
     "cmake_common",
     "usvfs",
     "uibase",

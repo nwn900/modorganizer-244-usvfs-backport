@@ -7,18 +7,12 @@ mo2_configure_executable(organizer
 	EXTRA_TRANSLATIONS ${MO2_SUPER_PATH}/game_gamebryo/src ${MO2_UIBASE_PATH}/src
 	PRIVATE_DEPENDS
 		uibase githubpp bsatk esptk archive usvfs lootcli boost::program_options
-		DirectXTex libbsarch Qt::WebEngineWidgets Qt::WebSockets)
+		Qt::WebEngineWidgets Qt::WebSockets)
 target_link_libraries(organizer PUBLIC Shlwapi)
-target_include_directories(organizer PUBLIC ${DDS_ROOT})
 mo2_install_target(organizer)
 
-install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/dlls.manifest.qt6"
+install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/dlls.manifest.qt5"
 		DESTINATION bin/dlls
-		CONFIGURATIONS Release RelWithDebInfo
-		RENAME dlls.manifest)
-install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/dlls.manifest.debug.qt6"
-		DESTINATION bin/dlls
-		CONFIGURATIONS Debug
 		RENAME dlls.manifest)
 
 install(DIRECTORY
@@ -61,7 +55,6 @@ mo2_add_filter(NAME src/core GROUPS
 	nexusinterface
 	nxmaccessmanager
 	organizercore
-	game_features
 	plugincontainer
 	apiuseraccount
 	processrunner
@@ -203,7 +196,6 @@ mo2_add_filter(NAME src/profiles GROUPS
 
 mo2_add_filter(NAME src/proxies GROUPS
 	downloadmanagerproxy
-	gamefeaturesproxy
 	modlistproxy
 	organizerproxy
 	pluginlistproxy

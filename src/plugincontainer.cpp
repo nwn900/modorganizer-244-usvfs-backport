@@ -320,9 +320,7 @@ void PluginRequirements::requiredFor(std::vector<MOBase::IPlugin*>& required,
 // PluginContainer
 
 PluginContainer::PluginContainer(OrganizerCore* organizer)
-    : m_Organizer(organizer), m_UserInterface(nullptr),
-      m_GameFeatures(std::make_unique<GameFeatures>(organizer, this)),
-      m_PreviewGenerator(*this)
+    : m_Organizer(organizer), m_UserInterface(nullptr), m_PreviewGenerator(*this)
 {}
 
 PluginContainer::~PluginContainer()
@@ -627,12 +625,12 @@ IPlugin* PluginContainer::registerPlugin(QObject* plugin, const QString& filepat
   return nullptr;
 }
 
-IPluginGame* PluginContainer::managedGame() const
+IPlugin* PluginContainer::managedGame() const
 {
   // TODO: This const_cast is safe but ugly. Most methods require a IPlugin*, so
   // returning a const-version if painful. This should be fixed by making methods accept
   // a const IPlugin* instead, but there are a few tricks with qobject_cast and const.
-  return m_Organizer ? const_cast<IPluginGame*>(m_Organizer->managedGame()) : nullptr;
+  return const_cast<IPluginGame*>(m_Organizer->managedGame());
 }
 
 bool PluginContainer::isEnabled(IPlugin* plugin) const
@@ -760,6 +758,11 @@ IPluginGame* PluginContainer::game(const QString& name) const
   } else {
     return nullptr;
   }
+}
+
+const PreviewGenerator& PluginContainer::previewGenerator() const
+{
+  return m_PreviewGenerator;
 }
 
 void PluginContainer::startPluginsImpl(const std::vector<QObject*>& plugins) const

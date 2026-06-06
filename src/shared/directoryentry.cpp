@@ -24,7 +24,6 @@ along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 #include "originconnection.h"
 #include "util.h"
 #include "windows_error.h"
-#include <format>
 #include <log.h>
 #include <utility.h>
 
@@ -906,7 +905,7 @@ void DirectoryEntry::dump(const std::wstring& file) const
     auto e       = _wfopen_s(&f, file.c_str(), L"wb");
 
     if (e != 0 || !f) {
-      throw DumpFailed(std::format("failed to open, {} ({})", std::strerror(e), e));
+      throw DumpFailed(fmt::format("failed to open, {} ({})", std::strerror(e), e));
     }
 
     Guard g([&] {
@@ -944,7 +943,7 @@ void DirectoryEntry::dump(std::FILE* f, const std::wstring& parentPath) const
 
       if (std::fwrite(lineu8.data(), lineu8.size(), 1, f) != 1) {
         const auto e = errno;
-        throw DumpFailed(std::format("failed to write, {} ({})", std::strerror(e), e));
+        throw DumpFailed(fmt::format("failed to write, {} ({})", std::strerror(e), e));
       }
     }
   }

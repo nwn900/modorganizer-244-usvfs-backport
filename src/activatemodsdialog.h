@@ -24,8 +24,9 @@ along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 #include "tutorabledialog.h"
 
 #include <QObject>
-#include <QString>
-#include <QWidget>
+
+class QString;
+class QWidget;
 
 #include <set>
 
@@ -48,7 +49,7 @@ public:
    * @param missingPlugins a map containing missing plugins that need to be activated
    * @param parent ... Defaults to 0.
    **/
-  explicit ActivateModsDialog(MOBase::SaveGameInfo::MissingAssets const& missingAssets,
+  explicit ActivateModsDialog(SaveGameInfo::MissingAssets const& missingAssets,
                               QWidget* parent = 0);
   ~ActivateModsDialog();
 

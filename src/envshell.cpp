@@ -1,10 +1,7 @@
-#include <format>
-
+#include "envshell.h"
 #include <log.h>
 #include <utility.h>
 #include <windowsx.h>
-
-#include "envshell.h"
 
 namespace env
 {
@@ -19,7 +16,7 @@ class MenuFailed : public std::runtime_error
 public:
   MenuFailed(HRESULT r, const std::string& what)
       : runtime_error(
-            std::format("{}, {}", what,
+            fmt::format("{}, {}", what,
                         QString::fromStdWString(formatSystemMessage(r)).toStdString()))
   {}
 };
@@ -481,7 +478,7 @@ void ShellMenu::invoke(const QPoint& p, int cmd)
   const auto r = m_cm->InvokeCommand((CMINVOKECOMMANDINFO*)&info);
 
   if (FAILED(r)) {
-    throw MenuFailed(r, std::format("InvokeCommand failed, verb={}", cmd));
+    throw MenuFailed(r, fmt::format("InvokeCommand failed, verb={}", cmd));
   }
 }
 

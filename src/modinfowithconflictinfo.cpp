@@ -303,7 +303,7 @@ void ModInfoWithConflictInfo::prefetch()
 
 bool ModInfoWithConflictInfo::doIsValid() const
 {
-  auto mdc = m_Core.gameFeatures().gameFeature<ModDataChecker>();
+  auto mdc = m_Core.managedGame()->feature<ModDataChecker>();
 
   if (mdc) {
     auto qdirfiletree = fileTree();

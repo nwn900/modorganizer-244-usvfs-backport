@@ -63,7 +63,8 @@ void SavesTab::displaySaveGameInfo(QTreeWidgetItem* newItem)
   }
 
   if (m_CurrentSaveView == nullptr) {
-    auto info = m_core.gameFeatures().gameFeature<SaveGameInfo>();
+    const IPluginGame* game  = m_core.managedGame();
+    const SaveGameInfo* info = game->feature<SaveGameInfo>();
 
     if (info != nullptr) {
       m_CurrentSaveView = info->getSaveGameWidget(m_window);
@@ -199,7 +200,7 @@ void SavesTab::refreshSaveList()
 
 void SavesTab::deleteSavegame()
 {
-  auto info = m_core.gameFeatures().gameFeature<SaveGameInfo>();
+  SaveGameInfo const* info = m_core.managedGame()->feature<SaveGameInfo>();
 
   QString savesMsgLabel;
   QStringList deleteFiles;
@@ -246,7 +247,7 @@ void SavesTab::onContextMenu(const QPoint& pos)
 
   QMenu menu;
 
-  auto info = m_core.gameFeatures().gameFeature<SaveGameInfo>();
+  SaveGameInfo const* info = this->m_core.managedGame()->feature<SaveGameInfo>();
   if (info != nullptr) {
     QAction* action = menu.addAction(tr("Fix enabled mods..."));
     action->setEnabled(false);
@@ -275,7 +276,7 @@ void SavesTab::onContextMenu(const QPoint& pos)
   menu.exec(ui.list->viewport()->mapToGlobal(pos));
 }
 
-void SavesTab::fixMods(MOBase::SaveGameInfo::MissingAssets const& missingAssets)
+void SavesTab::fixMods(SaveGameInfo::MissingAssets const& missingAssets)
 {
   ActivateModsDialog dialog(missingAssets, m_window);
   if (dialog.exec() == QDialog::Accepted) {
@@ -304,7 +305,7 @@ void SavesTab::fixMods(MOBase::SaveGameInfo::MissingAssets const& missingAssets)
 
 void SavesTab::openInExplorer()
 {
-  auto info = m_core.gameFeatures().gameFeature<SaveGameInfo>();
+  const SaveGameInfo* info = m_core.managedGame()->feature<SaveGameInfo>();
 
   const auto sel = ui.list->selectionModel()->selectedRows();
   if (sel.empty()) {

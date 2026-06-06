@@ -24,8 +24,6 @@ class IUserInterface;
 #include <memory>
 #include <vector>
 
-#include "game_features.h"
-
 class OrganizerProxy;
 
 /**
@@ -281,7 +279,7 @@ public:
   /**
    * @return the IPlugin interface to the currently managed game.
    */
-  MOBase::IPluginGame* managedGame() const;
+  MOBase::IPlugin* managedGame() const;
 
   /**
    * @brief Check if the given plugin is enabled.
@@ -340,14 +338,9 @@ public:
   QString topImplementedInterface(MOBase::IPlugin* plugin) const;
 
   /**
-   * @return the game features.
-   */
-  GameFeatures& gameFeatures() const { return *m_GameFeatures; }
-
-  /**
    * @return the preview generator.
    */
-  const PreviewGenerator& previewGenerator() const { return m_PreviewGenerator; }
+  const PreviewGenerator& previewGenerator() const;
 
   /**
    * @return the list of plugin file names, including proxied plugins.
@@ -482,9 +475,6 @@ private:
 
   // Main user interface, can be null until MW has been initialized.
   IUserInterface* m_UserInterface;
-
-  // Game features
-  std::unique_ptr<GameFeatures> m_GameFeatures;
 
   PluginMap m_Plugins;
 
