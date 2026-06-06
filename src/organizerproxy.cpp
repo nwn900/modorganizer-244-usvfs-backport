@@ -11,72 +11,11 @@
 #include "shared/appconfig.h"
 #include "shared/util.h"
 
-#include <game_features/igamefeatures.h>
-
 #include <QApplication>
 #include <QObject>
 
 using namespace MOBase;
 using namespace MOShared;
-
-namespace
-{
-
-class NullGameFeatures : public IGameFeatures
-{
-public:
-  bool registerFeature(QStringList const& games,
-                       std::shared_ptr<GameFeature> feature, int priority,
-                       bool replace = false) override
-  {
-    Q_UNUSED(games);
-    Q_UNUSED(feature);
-    Q_UNUSED(priority);
-    Q_UNUSED(replace);
-    return false;
-  }
-
-  bool registerFeature(IPluginGame* game, std::shared_ptr<GameFeature> feature,
-                       int priority, bool replace = false) override
-  {
-    Q_UNUSED(game);
-    Q_UNUSED(feature);
-    Q_UNUSED(priority);
-    Q_UNUSED(replace);
-    return false;
-  }
-
-  bool registerFeature(std::shared_ptr<GameFeature> feature, int priority,
-                       bool replace = false) override
-  {
-    Q_UNUSED(feature);
-    Q_UNUSED(priority);
-    Q_UNUSED(replace);
-    return false;
-  }
-
-  bool unregisterFeature(std::shared_ptr<GameFeature> feature) override
-  {
-    Q_UNUSED(feature);
-    return false;
-  }
-
-protected:
-  std::shared_ptr<GameFeature>
-  gameFeatureImpl(std::type_info const& info) const override
-  {
-    Q_UNUSED(info);
-    return {};
-  }
-
-  int unregisterFeaturesImpl(std::type_info const& info) override
-  {
-    Q_UNUSED(info);
-    return 0;
-  }
-};
-
-}  // namespace
 
 OrganizerProxy::OrganizerProxy(OrganizerCore* organizer,
                                PluginContainer* pluginContainer,
@@ -374,12 +313,6 @@ MOBase::IModList* OrganizerProxy::modList() const
 MOBase::IProfile* OrganizerProxy::profile() const
 {
   return m_Proxied->currentProfile();
-}
-
-MOBase::IGameFeatures* OrganizerProxy::gameFeatures() const
-{
-  static NullGameFeatures gameFeatures;
-  return &gameFeatures;
 }
 
 MOBase::IPluginGame const* OrganizerProxy::managedGame() const

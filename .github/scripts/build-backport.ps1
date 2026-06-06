@@ -685,11 +685,6 @@ function Get-DependencySnapshots([string]$Version) {
 }
 
 function Pin-DependencySnapshots([string]$Prefix, [string]$Version) {
-    if ($Version -eq "2.5.0") {
-        Write-Step "Using mob 2.5-dependencies snapshots for stock runtime compatibility"
-        return
-    }
-
     $snapshots = Get-DependencySnapshots -Version $Version
     if ($snapshots.Count -eq 0) {
         return
