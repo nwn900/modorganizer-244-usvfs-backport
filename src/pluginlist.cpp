@@ -180,8 +180,7 @@ void PluginList::refresh(const QString& profileName,
   GamePlugins* gamePlugins   = m_GamePlugin->feature<GamePlugins>();
   const bool lightPluginsAreSupported =
       gamePlugins ? gamePlugins->lightPluginsAreSupported() : false;
-  const bool overridePluginsAreSupported =
-      gamePlugins ? gamePlugins->overridePluginsAreSupported() : false;
+  const bool overridePluginsAreSupported = false;
 
   m_CurrentProfile = profileName;
 
@@ -1085,8 +1084,7 @@ void PluginList::generatePluginIndexes()
   GamePlugins* gamePlugins = m_GamePlugin->feature<GamePlugins>();
   const bool lightPluginsSupported =
       gamePlugins ? gamePlugins->lightPluginsAreSupported() : false;
-  const bool overridePluginsSupported =
-      gamePlugins ? gamePlugins->overridePluginsAreSupported() : false;
+  const bool overridePluginsSupported = false;
 
   for (int l = 0; l < m_ESPs.size(); ++l) {
     int i = m_ESPsByPriority.at(l);

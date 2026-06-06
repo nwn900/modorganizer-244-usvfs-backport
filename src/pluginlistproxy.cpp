@@ -119,6 +119,12 @@ bool PluginListProxy::isLightFlagged(const QString& name) const
   return m_Proxied->isLightFlagged(name);
 }
 
+bool PluginListProxy::isMediumFlagged(const QString& name) const
+{
+  Q_UNUSED(name);
+  return false;
+}
+
 bool PluginListProxy::isOverlayFlagged(const QString& name) const
 {
   return m_Proxied->isOverlayFlagged(name);
