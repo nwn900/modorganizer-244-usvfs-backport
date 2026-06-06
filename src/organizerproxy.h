@@ -63,6 +63,7 @@ public:  // IOrganizer interface
   virtual MOBase::IPluginList* pluginList() const;
   virtual MOBase::IModList* modList() const;
   virtual MOBase::IProfile* profile() const override;
+  virtual MOBase::IGameFeatures* gameFeatures() const;
   virtual HANDLE startApplication(const QString& executable,
                                   const QStringList& args = QStringList(),
                                   const QString& cwd = "", const QString& profile = "",
