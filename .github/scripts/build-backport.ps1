@@ -299,7 +299,7 @@ function Patch-UibaseGameFeatureCompatibility([string]$Prefix) {
     }
 
     $content = Get-Content -LiteralPath $pluginGamePath -Raw
-    if ($content -match 'template\s*<\s*class\s+T\s*>\s*(?:\r?\n\s*)+T\s*\*\s*feature\s*\(') {
+    if ($content -match 'T\s*\*\s*feature\s*\(') {
         return
     }
 
