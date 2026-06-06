@@ -318,9 +318,9 @@ function Patch-UibaseGameFeatureCompatibility([string]$Prefix) {
   }
 
   template <class T>
-  const T* feature() const
+  T* feature() const
   {
-    return dynamic_cast<const T*>(this);
+    return dynamic_cast<T*>(const_cast<IPluginGame*>(this));
   }
 '@
 
