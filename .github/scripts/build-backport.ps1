@@ -470,6 +470,68 @@ function Expand-StockMo2Release {
     }
 }
 
+function Save-StockDropInDiagnostics {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$StockRoot,
+
+        [Parameter(Mandatory = $true)]
+        [string]$StockExe,
+
+        [Parameter(Mandatory = $true)]
+        [string]$BuiltExe,
+
+        [Parameter(Mandatory = $true)]
+        [datetime]$StartTime
+    )
+
+    $diagnosticsDir = Join-Path $outputDir "stock-dropin-diagnostics"
+    New-Item -ItemType Directory -Path $diagnosticsDir -Force | Out-Null
+
+    Copy-Item -LiteralPath $BuiltExe -Destination (Join-Path $diagnosticsDir "Built-ModOrganizer.exe") -Force -ErrorAction SilentlyContinue
+    Copy-Item -LiteralPath $StockExe -Destination (Join-Path $diagnosticsDir "StockDropIn-ModOrganizer.exe") -Force -ErrorAction SilentlyContinue
+
+    $versionLines = New-Object System.Collections.Generic.List[string]
+    foreach ($path in @($BuiltExe, $StockExe)) {
+        if (Test-Path -LiteralPath $path) {
+            $item = Get-Item -LiteralPath $path
+            $versionLines.Add("$($item.FullName)")
+            $versionLines.Add("  FileVersion: $($item.VersionInfo.FileVersion)")
+            $versionLines.Add("  ProductVersion: $($item.VersionInfo.ProductVersion)")
+        }
+    }
+    Get-ChildItem -LiteralPath $StockRoot -File -Filter "*.dll" -ErrorAction SilentlyContinue |
+        Sort-Object Name |
+        ForEach-Object {
+            $versionLines.Add("$($_.Name) $($_.VersionInfo.FileVersion)")
+        }
+    Set-AsciiContent -Path (Join-Path $diagnosticsDir "versions.txt") -Content ($versionLines -join "`r`n")
+
+    $stockFilesDir = Join-Path $diagnosticsDir "stock-files"
+    Get-ChildItem -LiteralPath $StockRoot -Recurse -File -ErrorAction SilentlyContinue |
+        Where-Object { $_.Extension -in @(".log", ".dmp") } |
+        ForEach-Object {
+            $relative = [System.IO.Path]::GetRelativePath($StockRoot, $_.FullName)
+            $destination = Join-Path $stockFilesDir $relative
+            New-Item -ItemType Directory -Path (Split-Path -Path $destination -Parent) -Force | Out-Null
+            Copy-Item -LiteralPath $_.FullName -Destination $destination -Force -ErrorAction SilentlyContinue
+        }
+
+    try {
+        $events = Get-WinEvent -FilterHashtable @{ LogName = "Application"; StartTime = $StartTime } -ErrorAction SilentlyContinue |
+            Where-Object {
+                ($_.ProviderName -in @("Application Error", "Windows Error Reporting")) -or
+                ($_.Message -like "*ModOrganizer.exe*")
+            } |
+            Sort-Object TimeCreated |
+            Format-List TimeCreated, ProviderName, Id, LevelDisplayName, Message |
+            Out-String
+        Set-AsciiContent -Path (Join-Path $diagnosticsDir "application-events.txt") -Content $events
+    } catch {
+        Set-AsciiContent -Path (Join-Path $diagnosticsDir "application-events.txt") -Content "Failed to collect event log: $_"
+    }
+}
+
 function Test-StockDropInReplacement {
     param(
         [Parameter(Mandatory = $true)]
@@ -482,13 +544,24 @@ function Test-StockDropInReplacement {
     $stockExe = Find-ModOrganizerExe -InstallRoot $StockRoot
     Copy-Item -LiteralPath $BuiltExe -Destination $stockExe -Force
 
+    $diagnosticsDir = Join-Path $outputDir "stock-dropin-diagnostics"
+    New-Item -ItemType Directory -Path $diagnosticsDir -Force | Out-Null
+    $dumpKey = "HKCU:\Software\Microsoft\Windows\Windows Error Reporting\LocalDumps\ModOrganizer.exe"
+    New-Item -Path $dumpKey -Force | Out-Null
+    New-ItemProperty -Path $dumpKey -Name DumpFolder -Value $diagnosticsDir -PropertyType String -Force | Out-Null
+    New-ItemProperty -Path $dumpKey -Name DumpType -Value 2 -PropertyType DWord -Force | Out-Null
+    New-ItemProperty -Path $dumpKey -Name DumpCount -Value 2 -PropertyType DWord -Force | Out-Null
+
     $stockProcess = $null
+    $startTime = Get-Date
     try {
         $stockProcess = Start-Process -FilePath $stockExe -ArgumentList "--pick", "--multiple" `
             -WorkingDirectory (Split-Path -Path $stockExe -Parent) -PassThru
         Start-Sleep -Seconds 20
 
         if ($stockProcess.HasExited) {
+            Start-Sleep -Seconds 5
+            Save-StockDropInDiagnostics -StockRoot $StockRoot -StockExe $stockExe -BuiltExe $BuiltExe -StartTime $startTime
             throw "Stock drop-in ModOrganizer exited early with code $($stockProcess.ExitCode)"
         }
     } finally {
@@ -955,6 +1028,7 @@ try {
 $installRoot = Join-Path $prefix "install"
 $modOrganizerExe = Find-ModOrganizerExe -InstallRoot $installRoot
 Write-Step "Found ModOrganizer.exe at $modOrganizerExe"
+Copy-Item -LiteralPath $modOrganizerExe -Destination (Join-Path $outputDir "ModOrganizer.exe") -Force
 
 $env:QTWEBENGINE_DISABLE_SANDBOX = "1"
 $launchSummary = "FAIL"
