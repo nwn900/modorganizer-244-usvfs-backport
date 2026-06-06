@@ -584,7 +584,7 @@ function Pin-Stock250DependencyCompatibility([string]$Prefix) {
         throw "Expected lootcli repository at $lootcliPath"
     }
 
-    $lootcliLibloot21Ref = "987eed5833acbf3d1972d968a19a101934cf767a"
+    $lootcliLibloot21Ref = "987eed53c41fb1c26ac949ded9da4e84d042b1b0"
     Write-Step "Pinning lootcli to libloot 0.21-compatible commit"
     & git -C $lootcliPath fetch --depth 1 origin $lootcliLibloot21Ref
     if ($LASTEXITCODE -ne 0) {
