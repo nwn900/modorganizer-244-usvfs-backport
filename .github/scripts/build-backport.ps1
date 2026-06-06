@@ -698,6 +698,11 @@ function Pin-DependencySnapshots([string]$Prefix, [string]$Version) {
         }
 
         Write-Step ("Pinning {0} to {1}" -f $entry.Key, $entry.Value.Substring(0, 12))
+        & git -C $repoPath fetch --depth 1 origin $entry.Value
+        if ($LASTEXITCODE -ne 0) {
+            throw "Failed to fetch $($entry.Key) snapshot $($entry.Value)"
+        }
+
         & git -C $repoPath checkout --detach $entry.Value
         if ($LASTEXITCODE -ne 0) {
             throw "Failed to pin $($entry.Key) to $($entry.Value)"
