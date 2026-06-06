@@ -28,6 +28,7 @@ along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 #include "settingsdialogworkarounds.h"
 #include "shared/appconfig.h"
 #include "shared/windows_error.h"
+#include "usvfs_legacy_exports.h"
 #include "utility.h"
 #include <QApplication>
 #include <QMessageBox>
@@ -39,13 +40,6 @@ along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 #include <log.h>
 #include <report.h>
 #include <usvfs.h>
-
-extern "C" BOOL WINAPI CreateProcessHooked(
-    LPCWSTR lpApplicationName, LPWSTR lpCommandLine,
-    LPSECURITY_ATTRIBUTES lpProcessAttributes,
-    LPSECURITY_ATTRIBUTES lpThreadAttributes, BOOL bInheritHandles,
-    DWORD dwCreationFlags, LPVOID lpEnvironment, LPCWSTR lpCurrentDirectory,
-    LPSTARTUPINFOW lpStartupInfo, LPPROCESS_INFORMATION lpProcessInformation);
 
 using namespace MOBase;
 using namespace MOShared;

@@ -22,6 +22,7 @@ along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 #include "organizercore.h"
 #include "settings.h"
 #include "shared/util.h"
+#include "usvfs_legacy_exports.h"
 #include <QCoreApplication>
 #include <QDateTime>
 #include <QProgressDialog>
