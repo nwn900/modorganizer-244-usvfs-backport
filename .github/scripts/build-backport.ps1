@@ -601,6 +601,7 @@ $coreBuildTasks = @(
     "7z",
     "zlib",
     "lz4",
+    "fmt",
     "spdlog",
     "boost",
     "boost-di",
