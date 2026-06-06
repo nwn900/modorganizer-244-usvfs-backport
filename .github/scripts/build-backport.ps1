@@ -1165,7 +1165,10 @@ if (Test-Path -LiteralPath $mobLogPath) {
     Copy-Item -LiteralPath $mobLogPath -Destination (Join-Path $outputDir "mob-ci.log") -Force
 }
 
-$usvfsLogs = Get-ChildItem -LiteralPath $testBin -Filter "*.log" -File -ErrorAction SilentlyContinue
+$usvfsLogs = @()
+if ($testBin -and (Test-Path -LiteralPath $testBin)) {
+    $usvfsLogs = Get-ChildItem -LiteralPath $testBin -Filter "*.log" -File -ErrorAction SilentlyContinue
+}
 if ($usvfsLogs) {
     $logOutDir = Join-Path $outputDir "usvfs-test-logs"
     New-Item -ItemType Directory -Path $logOutDir -Force | Out-Null
