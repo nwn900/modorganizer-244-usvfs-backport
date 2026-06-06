@@ -16,7 +16,7 @@ env:
   USER_BRANCH: codex/backport-250-exe-stock-runtime
   USER_ORG: nwn900
   USVFS_REF: v0.5.0
-  QT_VERSION: 6.4.3
+  QT_VERSION: 6.5.0
   QT_ARCH: win64_msvc2019_64
 
 jobs:
