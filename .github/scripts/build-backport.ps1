@@ -591,6 +591,17 @@ $mobLogPath = Join-Path $prefix "mob-ci.log"
 $msbuild = Join-Path $vsPath "MSBuild\Current\Bin\MSBuild.exe"
 $stockRoot = Join-Path $runnerTemp ("stock-mo2-" + $TargetVersion.Replace(".", ""))
 $coreBuildTasks = @(
+    "bzip2",
+    "7z",
+    "zlib",
+    "lz4",
+    "spdlog",
+    "boost",
+    "boost-di",
+    "libloot",
+    "openssl",
+    "libbsarch",
+    "gtest",
     "directxtex",
     "cmake_common",
     "usvfs",
