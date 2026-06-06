@@ -585,7 +585,7 @@ function Get-DependencySnapshots([string]$Version) {
                 "helper"                         = "ce072e46a781bfb3b1e3ba20b32df81f7486cdb4"
                 "githubpp"                       = "308c00967d1237e1ff8589f8aa36ad8b016a662a"
                 "game_gamebryo"                  = "0076e5431bd7fffb4977c724a92027e6e4f11f2e"
-                "bsapacker"                      = "f78080df28b63801f608edc1f130d399a8110125"
+                "bsapacker"                      = "70eca305d817f392c276bf5f25c9a82a4d4ac272"
                 "preview_bsa"                    = "567d8ac549824cff3d9122b671b62f7471bd02a4"
                 "game_oblivion"                  = "c4589dd80a89b23aff9501c845991dacb3e454b5"
                 "game_nehrim"                    = "53800b4c32525579729493e532d65f2f487c0d43"
