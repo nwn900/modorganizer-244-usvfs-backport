@@ -578,6 +578,25 @@ function Pin-DependencySnapshots([string]$Prefix, [string]$Version) {
     }
 }
 
+function Pin-Stock250DependencyCompatibility([string]$Prefix) {
+    $lootcliPath = Join-Path $Prefix "build\modorganizer_super\lootcli"
+    if (-not (Test-Path -LiteralPath $lootcliPath)) {
+        throw "Expected lootcli repository at $lootcliPath"
+    }
+
+    $lootcliLibloot21Ref = "987eed5833acbf3d1972d968a19a101934cf767a"
+    Write-Step "Pinning lootcli to libloot 0.21-compatible commit"
+    & git -C $lootcliPath fetch --depth 1 origin $lootcliLibloot21Ref
+    if ($LASTEXITCODE -ne 0) {
+        throw "Failed to fetch lootcli compatibility commit"
+    }
+
+    & git -C $lootcliPath checkout --detach $lootcliLibloot21Ref
+    if ($LASTEXITCODE -ne 0) {
+        throw "Failed to pin lootcli to $lootcliLibloot21Ref"
+    }
+}
+
 $workspace = if ($env:GITHUB_WORKSPACE) { $env:GITHUB_WORKSPACE } else { (Get-Location).Path }
 $runnerTemp = if ($env:RUNNER_TEMP) { $env:RUNNER_TEMP } else { Join-Path $workspace ".runner-temp" }
 $vsPath = if ($env:MO2_VS) { $env:MO2_VS } else { throw "MO2_VS is not set" }
@@ -785,6 +804,9 @@ Invoke-Mob -MobExe $mobExe -IniPath $iniPath -Prefix $prefix -Arguments @("build
 
 Write-Step "Pinning Mod Organizer dependency snapshots"
 Pin-DependencySnapshots -Prefix $prefix -Version $TargetVersion
+if ($TargetVersion -eq "2.5.0") {
+    Pin-Stock250DependencyCompatibility -Prefix $prefix
+}
 
 Write-Step "Patching fetched cmake_common sources"
 if ($TargetVersion -eq "2.5.0") {
