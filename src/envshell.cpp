@@ -1,4 +1,5 @@
 #include "envshell.h"
+#include <fmt/format.h>
 #include <log.h>
 #include <utility.h>
 #include <windowsx.h>

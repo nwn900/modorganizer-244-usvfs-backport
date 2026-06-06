@@ -24,6 +24,7 @@ along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 #include "originconnection.h"
 #include "util.h"
 #include "windows_error.h"
+#include <fmt/format.h>
 #include <log.h>
 #include <utility.h>
 
