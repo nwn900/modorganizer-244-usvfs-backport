@@ -247,6 +247,28 @@ function Find-UibaseLogPath([string]$Prefix) {
     return $null
 }
 
+function Find-UibasePluginGamePath([string]$Prefix) {
+    $candidates = @(
+        (Join-Path $Prefix "build\modorganizer_super\uibase\src\iplugingame.h"),
+        (Join-Path $Prefix "build\uibase\src\iplugingame.h")
+    )
+
+    foreach ($candidate in $candidates) {
+        if (Test-Path -LiteralPath $candidate) {
+            return $candidate
+        }
+    }
+
+    $fallback = Get-ChildItem -LiteralPath (Join-Path $Prefix "build") -Filter "iplugingame.h" -Recurse -File |
+        Where-Object { $_.FullName -like '*\uibase\src\iplugingame.h' } |
+        Select-Object -First 1
+    if ($fallback) {
+        return $fallback.FullName
+    }
+
+    return $null
+}
+
 function Patch-UibaseLoggingCompatibility([string]$Prefix) {
     $logPath = Find-UibaseLogPath -Prefix $Prefix
     if (-not $logPath) {
@@ -268,6 +290,43 @@ function Patch-UibaseLoggingCompatibility([string]$Prefix) {
         Set-AsciiContent -Path $logPath -Content $updated
         Write-Step "Patched uibase logging compatibility"
     }
+}
+
+function Patch-UibaseGameFeatureCompatibility([string]$Prefix) {
+    $pluginGamePath = Find-UibasePluginGamePath -Prefix $Prefix
+    if (-not $pluginGamePath) {
+        return
+    }
+
+    $content = Get-Content -LiteralPath $pluginGamePath -Raw
+    if ($content -match 'template\s*<\s*class\s+T\s*>\s*(?:\r?\n\s*)+T\s*\*\s*feature\s*\(') {
+        return
+    }
+
+    $needle = '  virtual QString getSupportURL() const { return ""; }'
+    if (-not $content.Contains($needle)) {
+        return
+    }
+
+    $replacement = @'
+  virtual QString getSupportURL() const { return ""; }
+
+  template <class T>
+  T* feature()
+  {
+    return dynamic_cast<T*>(this);
+  }
+
+  template <class T>
+  const T* feature() const
+  {
+    return dynamic_cast<const T*>(this);
+  }
+'@
+
+    $updated = $content.Replace($needle, $replacement)
+    Set-AsciiContent -Path $pluginGamePath -Content $updated
+    Write-Step "Patched uibase game feature compatibility"
 }
 
 function Patch-CmakeCommonFmtCompatibility([string]$Prefix) {
@@ -817,6 +876,7 @@ if ($TargetVersion -eq "2.5.0") {
 
 Write-Step "Patching fetched uibase sources"
 Patch-UibaseLoggingCompatibility -Prefix $prefix
+Patch-UibaseGameFeatureCompatibility -Prefix $prefix
 
 Write-Step "Patching fetched bsapacker sources"
 Patch-BsapackerQt64Compatibility -Prefix $prefix
