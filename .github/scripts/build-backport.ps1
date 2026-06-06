@@ -590,6 +590,18 @@ $shaPath = Join-Path $outputDir "SHA256SUMS.txt"
 $mobLogPath = Join-Path $prefix "mob-ci.log"
 $msbuild = Join-Path $vsPath "MSBuild\Current\Bin\MSBuild.exe"
 $stockRoot = Join-Path $runnerTemp ("stock-mo2-" + $TargetVersion.Replace(".", ""))
+$coreBuildTasks = @(
+    "cmake_common",
+    "usvfs",
+    "uibase",
+    "archive",
+    "lootcli",
+    "esptk",
+    "bsatk",
+    "githubpp",
+    "bsapacker",
+    "organizer"
+)
 
 Write-Step "Preparing output directories"
 foreach ($path in @($prefix, $mobRoot, $outputDir)) {
@@ -790,9 +802,9 @@ Invoke-Checked -FailureMessage "prepare-usvfs-source.ps1 failed" -Script {
     & (Join-Path $workspace "ASSEMBLER\prepare-usvfs-source.ps1") @prepareUsvfsArgs
 }
 
-Write-Step "Building all enabled tasks with mob"
+Write-Step "Building core organizer tasks with mob"
 try {
-    Invoke-Mob -MobExe $mobExe -IniPath $iniPath -Prefix $prefix -Arguments @("build", "--no-fetch-task")
+    Invoke-Mob -MobExe $mobExe -IniPath $iniPath -Prefix $prefix -Arguments (@("build") + $coreBuildTasks + @("--no-fetch-task"))
 } catch {
     $bsatkSln = Join-Path $prefix "build\modorganizer_super\bsatk\vsbuild\bsatk.sln"
     $previewBsaSln = Join-Path $prefix "build\modorganizer_super\preview_bsa\vsbuild\preview_bsa.sln"
@@ -809,11 +821,11 @@ try {
             -p:PlatformToolset=v143 `
             -p:WindowsTargetPlatformVersion=$sdkVersion
         if (($LASTEXITCODE -eq 0) -and (Test-Path -LiteralPath $bsatkLib)) {
-            try {
-                Write-Step "Retrying mob build after direct bsatk build"
-                Invoke-Mob -MobExe $mobExe -IniPath $iniPath -Prefix $prefix -Arguments @("build", "--no-fetch-task")
-                $mobRecovered = $true
-            } catch {
+                try {
+                    Write-Step "Retrying mob build after direct bsatk build"
+                    Invoke-Mob -MobExe $mobExe -IniPath $iniPath -Prefix $prefix -Arguments (@("build") + $coreBuildTasks + @("--no-fetch-task"))
+                    $mobRecovered = $true
+                } catch {
                 Write-Step "Mob retry after direct bsatk build still failed"
             }
         } else {
