@@ -315,11 +315,6 @@ MOBase::IProfile* OrganizerProxy::profile() const
   return m_Proxied->currentProfile();
 }
 
-MOBase::IGameFeatures* OrganizerProxy::gameFeatures() const
-{
-  return nullptr;
-}
-
 MOBase::IPluginGame const* OrganizerProxy::managedGame() const
 {
   return m_Proxied->managedGame();
